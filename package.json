@@ -1,7 +1,7 @@
 {
   "name": "api_node",
   "version": "1.0.0",
-  "description": "APIs on NodeJS",
+  "description": "APIs on NodeJS for Sharengo",
   "main": "index.js",
   "author": "Diego Betto",
   "depdendencies":{
