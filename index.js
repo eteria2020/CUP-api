@@ -146,12 +146,13 @@ var server;
 		getUser
 	);
 
+
+
 	server.get(
 		'/v2/cars', 
 		passport.authenticate('basic', {session: false}), 
 		getCars
 	);
-
 	server.get(
 		'/v2/cars/:plate', 
 		passport.authenticate('basic', {session: false}), 
@@ -159,23 +160,35 @@ var server;
 	);
 
 
+
 	server.get(
 		'/v2/reservations', 
 		passport.authenticate('basic', {session: false}), 
 		getReservations
 	);
-
-	server.get('/v2/trips', getTrips);
-	server.get('/v2/trips/:id', getTrips);
-
 	server.post(
 		'/v2/reservations', 
 		passport.authenticate('basic', {session: false}), 
 		postReservations
 	);
+	server.del(
+		'/v2/reservations/:id',
+		passport.authenticate('basic', {session: false}), 
+		delReservations
+	);
 
-	server.del('/v2/reservations/:id', delReservations);
 
+
+	server.get(
+		'/v2/trips',
+		passport.authenticate('basic', {session: false}),
+		getTrips
+	);
+	server.get(
+		'/v2/trips/:id',
+		passport.authenticate('basic', {session: false}),
+		getTrips
+	);
 	server.put('/v2/trips/:id', putTrips);
 
 /* / routes */
@@ -261,7 +274,38 @@ var server;
 	}
 
 	function getTrips(req, res, next) {
-	    res.send(req.params);
+		pg.connect(conString, function(err, client, done) {
+	        if (err) {
+	            console.error('error fetching trips from pool', err);
+	            return false;
+	        }
+
+	        var query = '',params,queryTrip;
+
+	        if(typeof  req.params.id === 'undefined'){
+	        	queryTrip = "";
+	        	params = [req.user.id];
+	        }else{
+	        	queryTrip = " AND id = $2";
+	        	params = [req.user.id,req.params.id];
+	        }
+
+
+	        client.query(
+	        	"SELECT id,car_plate,timestamp_beginning as timestamp_start,timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
+	        	params, 
+	        	function(err, result) {
+		            done();
+
+		            if (err) {
+		                console.error('error running query', err);
+		                return false;
+		            }
+		            sendOutJSON(res,200,'',result.rows);
+		           
+	        	}
+	        );
+	    });
 	    return next();
 	}
 
@@ -280,7 +324,6 @@ var server;
 	            console.error('error adding reservation from pool', err);
 	            return false;
 	        }
-	        console.log(req.user);
 	        client.query(
 	        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,sent_ts) VALUES (NOW(),$1,$2,NOW(),true,1,true,NOW())", 
 	        	[req.params.plate,req.user.id], 
@@ -310,7 +353,28 @@ var server;
 	 * @param  function next handler
 	 */
 	function delReservations(req, res, next) {
-	    res.send(req.params);
+		pg.connect(conString, function(err, client, done) {
+	        if (err) {
+	            console.error('error deleting reservation from pool', err);
+	            return false;
+	        }
+	        if(typeof  req.params.id !== 'undefined'){
+		        client.query(
+		        	"DELETE FROM reservations WHERE id = $1 AND customer_id = $2", 
+		        	[req.params.id,req.user.id], 
+		        	function(err, result) {
+			            done();
+
+			            if (err) {
+			                console.error('error running query', err);
+			                return false;
+			            }
+			            sendOutJSON(res,200,'','');
+			           
+		        	}
+		        );
+	        }
+	    });
 	    return next();
 	}
 
