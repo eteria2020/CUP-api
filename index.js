@@ -4,14 +4,16 @@
 
 // https://bob:secret@localhost:8023/v2/cars
 
+var config = require('./config');
+var conString = config.conString;
+var port = config.port;
+
 // INIT
 var restify = require('restify');
 var pg = require('pg').native;
 var fs = require('fs');
 var passport = require('passport');
 var BasicStrategy = require('passport-http').BasicStrategy;
-var conString = "postgres://sharengo:sharengo@192.168.33.24/sharengo";
-var port = process.env.PORT || 8023;
 var server;
 
 var defaultDistance = 300;
