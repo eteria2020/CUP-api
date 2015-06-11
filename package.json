@@ -4,9 +4,10 @@
   "description": "APIs on NodeJS for Sharengo",
   "main": "index.js",
   "author": "Diego Betto",
-  "depdendencies":{
+  "dependencies":{
     "restify":"~2.6.3",
     "pg":"~4.3.0",
+    "pg-native":"~1.8.1",
     "passport":"0.2.2",
     "passport-http":"0.2.2"
   },
