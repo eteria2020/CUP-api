@@ -39,7 +39,7 @@ var defaultDistance = 300;
 	            console.error('error fetching users from pool', err);
 	            return fn(null, null);
 	        }
-	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email FROM customers WHERE email=$1 AND password=$2 LIMIT 1', 
+	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email FROM customers WHERE email=$1 AND password=$2 AND enabled = true LIMIT 1', 
 	        	[user, pass], 
 	        	function(err, result) {
 	            	// release the client back to the pool
