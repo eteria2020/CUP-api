@@ -212,6 +212,7 @@ var defaultDistance = 300;
 	function getUser(req, res, next) {
 		delete req.user.id;
 		delete req.user.password;
+		req.user.pin = JSON.parse(req.user.pin).primary;
 	    sendOutJSON(res,200,'',req.user);
 	    return next();
 	}
