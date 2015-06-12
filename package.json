@@ -5,9 +5,9 @@
   "main": "index.js",
   "author": "Diego Betto",
   "dependencies":{
-    "restify":"~2.6.3",
-    "pg":"~4.3.0",
-    "pg-native":"~1.8.1",
+    "restify":"2.6.3",
+    "pg":"4.3.0",
+    "pg-native":"1.8",
     "passport":"0.2.2",
     "passport-http":"0.2.2"
   },
