@@ -280,7 +280,7 @@ var defaultDistance = 300;
 	        }
 
 	        client.query(
-	        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active FROM reservations WHERE customer_id = $1 " + reservationQuery, 
+	        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active, car_plate, length FROM reservations WHERE customer_id = $1 " + reservationQuery, 
 	        	params, 
 	        	function(err, result) {
 		            done();
