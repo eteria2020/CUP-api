@@ -39,7 +39,7 @@ var defaultDistance = 300;
 	            console.error('error fetching users from pool', err);
 	            return fn(null, null);
 	        }
-	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email FROM customers WHERE email=$1 AND password=$2 LIMIT 1', 
+	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email FROM customers WHERE email=$1 AND password=$2 AND enabled = true LIMIT 1', 
 	        	[user, pass], 
 	        	function(err, result) {
 	            	// release the client back to the pool
@@ -212,6 +212,7 @@ var defaultDistance = 300;
 	function getUser(req, res, next) {
 		delete req.user.id;
 		delete req.user.password;
+		req.user.pin = JSON.parse(req.user.pin).primary;
 	    sendOutJSON(res,200,'',req.user);
 	    return next();
 	}
@@ -279,7 +280,7 @@ var defaultDistance = 300;
 	        }
 
 	        client.query(
-	        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active FROM reservations WHERE customer_id = $1 " + reservationQuery, 
+	        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active, car_plate, length FROM reservations WHERE customer_id = $1 " + reservationQuery, 
 	        	params, 
 	        	function(err, result) {
 		            done();
@@ -311,7 +312,7 @@ var defaultDistance = 300;
 	        	params = [req.user.id,req.params.id];
 	        }
 	        client.query(
-	        	"SELECT id,car_plate,timestamp_beginning as timestamp_start,timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
+	        	"SELECT id,car_plate,extract(epoch from timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from timestamp_end::timestamp with time zone)::integer as timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
 	        	params, 
 	        	function(err, result) {
 		            done();
@@ -337,7 +338,7 @@ var defaultDistance = 300;
 		pg.connect(conString, function(err, client, done) {
 	        if(logError(err,'error adding reservation from pool')) return false;
 	        client.query(
-	        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,sent_ts) VALUES (NOW(),$1,$2,NOW(),true,1,true,NOW())", 
+	        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true)", 
 	        	[req.params.plate,req.user.id], 
 	        	function(err, result) {
 		            done();
