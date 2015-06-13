@@ -312,7 +312,7 @@ var defaultDistance = 300;
 	        	params = [req.user.id,req.params.id];
 	        }
 	        client.query(
-	        	"SELECT id,car_plate,timestamp_beginning as timestamp_start,timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
+	        	"SELECT id,car_plate,extract(epoch from timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from timestamp_end::timestamp with time zone)::integer as timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
 	        	params, 
 	        	function(err, result) {
 		            done();
