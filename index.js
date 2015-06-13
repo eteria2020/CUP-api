@@ -226,7 +226,7 @@ var defaultDistance = 300;
 	function getCars(req, res, next) {
 		pg.connect(conString, function(err, client, done) {
 	        if(logError(err,'error fetching cars from pool')) return false;
-	        var query = '',params = [],queryString = '';
+	        var query = '',params = [],queryString = '',isSingle = false;
 	        var queryParams = [null,null,null,null];
 	        if(typeof  req.params.plate === 'undefined'){
 		        if(typeof req.headers.status !== 'undefined'){
@@ -244,6 +244,7 @@ var defaultDistance = 300;
 	        	// single car
 	        	query = "SELECT plate,model,manufactures as maker,latitude as lat,longitude as lon,int_cleanliness as internal_cleanliness,ext_cleanliness as external_cleanliness,battery as fuel_percentage FROM cars WHERE plate = $1";
 	        	params = [req.params.plate];
+	        	isSingle =true; 
 	        }
 
 	        client.query(
@@ -253,7 +254,8 @@ var defaultDistance = 300;
 		            done();
 		            if(logError(err,'query error')) return false;
 		            //console.log(result.rowCount);
-		            sendOutJSON(res,200,'',result.rows);		           
+		            var outJson = !isSingle?result.rows:result.rows[0];
+		            sendOutJSON(res,200,'',outJson);		           
 	        	}
 	        );
 	    });
@@ -269,11 +271,12 @@ var defaultDistance = 300;
 	function getReservations(req, res, next) {
 		pg.connect(conString, function(err, client, done) {
 	        if(logError(err,'error fetching reservations from pool')) return false;
-	        var params,reservationQuery = '';
+	        var params,reservationQuery = '',isSingle = false;
 
 	        if(typeof  req.params.reservation !== 'undefined'){
 	        	reservationQuery = ' AND id = $2';
 	        	params = [req.user.id,req.params.reservation];
+	        	isSingle = true;
 	        }else{
 	        	reservationQuery = '';
 	        	params = [req.user.id];
@@ -285,7 +288,8 @@ var defaultDistance = 300;
 	        	function(err, result) {
 		            done();
 		            if(logError(err,'query error')) return false;
-		            sendOutJSON(res,200,'',result.rows);
+		            var outJson = !isSingle?result.rows:result.rows[0];
+		            sendOutJSON(res,200,'',outJson);
 		           
 	        	}
 	        );
@@ -303,13 +307,14 @@ var defaultDistance = 300;
 	function getTrips(req, res, next) {
 		pg.connect(conString, function(err, client, done) {
 	        if(logError(err,'error fetching trips from pool')) return false;
-	        var query = '',params,queryTrip;
+	        var query = '',params,queryTrip, isSingle = false;
 	        if(typeof  req.params.id === 'undefined'){
 	        	queryTrip = "";
 	        	params = [req.user.id];
 	        }else{
 	        	queryTrip = " AND id = $2";
 	        	params = [req.user.id,req.params.id];
+	        	isSingle = true;
 	        }
 	        client.query(
 	        	"SELECT id,car_plate,extract(epoch from timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from timestamp_end::timestamp with time zone)::integer as timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
@@ -317,7 +322,8 @@ var defaultDistance = 300;
 	        	function(err, result) {
 		            done();
 		            if(logError(err,'query error')) return false;
-		            sendOutJSON(res,200,'',result.rows);		           
+		            var outJson = !isSingle?result.rows:result.rows[0];
+		            sendOutJSON(res,200,'',outJson);		           
 	        	}
 	        );
 	    });
