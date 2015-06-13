@@ -338,7 +338,7 @@ var defaultDistance = 300;
 		pg.connect(conString, function(err, client, done) {
 	        if(logError(err,'error adding reservation from pool')) return false;
 	        client.query(
-	        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,sent_ts) VALUES (NOW(),$1,$2,NOW(),true,1,true,NOW())", 
+	        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true)", 
 	        	[req.params.plate,req.user.id], 
 	        	function(err, result) {
 		            done();
