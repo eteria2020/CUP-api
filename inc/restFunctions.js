@@ -169,16 +169,21 @@ module.exports = {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
 		        if(logError(err,'error adding reservation from pool')) return false;
-		        client.query(
-		        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true)", 
-		        	[req.params.plate,req.user.id], 
-		        	function(err, result) {
-			            done();
-			            if(logError(err,'error running query')) return false;
-			            sendOutJSON(res,200,'','');
-			           
-		        	}
-		        );
+		        if(typeof  req.params.plate !== 'undefined' && req.params.plate !=''){
+			        client.query(
+			        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true)", 
+			        	[req.params.plate,req.user.id], 
+			        	function(err, result) {
+				            done();
+				            if(logError(err,'error running query')) return false;
+				            sendOutJSON(res,200,'','');
+				           
+			        	}
+			        );
+			    }else{
+			    	if(logError(err,'error running query')) return false;
+			    	sendOutJSON(res,400,'Invalid parameters',null);
+			    }
 		    });
 		}
 	    return next();
@@ -338,7 +343,7 @@ module.exports = {
 
 		){
 			console.log('\n+++++++++++++++++\nvalidation error\n');
-			sendOutJSON(res,404,'Invalid request',null);
+			sendOutJSON(res,400,'Invalid parameters',null);
 			return false;
 		}else{
 			return true;

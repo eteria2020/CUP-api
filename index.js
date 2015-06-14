@@ -15,7 +15,6 @@ var fs = require('fs');
 var passport = require('passport');
 var validator = require('validator');
 
-
 var BasicStrategy = require('passport-http').BasicStrategy;
 var server;
 
@@ -114,7 +113,33 @@ var funcs = require('./inc/restFunctions');
 	server = restify.createServer({
 	    certificate: fs.readFileSync('server.crt'),
 	    key: fs.readFileSync('server.key'),
-	    name: 'ShareNGo',
+	    name: 'Sharengo',
+	    formatters: {
+	        'application/json': function customizedFormatJSON( req, res, body ) {
+	            if ( body instanceof Error ) {
+	                res.statusCode = body.statusCode || 500;
+
+	                if ( body.body ) {
+	                    body = {
+	                        status: 400,
+	                        reason: "Invalid parameters",
+	                        time: Date.now() / 1000 | 0
+	                    };
+	                } else {
+	                    body = {
+	                        msg: body.message
+	                    };
+	                }
+	            } else if ( Buffer.isBuffer( body ) ) {
+	                body = body.toString( 'base64' );
+	            }
+
+	            var data = JSON.stringify( body );
+	            res.setHeader( 'Content-Length', Buffer.byteLength( data ) );
+
+	            return data;
+        	}
+   		}
 	});
 
 	server.use(passport.initialize());
@@ -148,21 +173,22 @@ var funcs = require('./inc/restFunctions');
 
 	server.on('InternalServerError', function(req, res, err, cb) {
 	    err._customContent = 'Error';
-	    console.log('Error',err);
+	    console.log('InternalServerError',err);
 	    return cb();
 	});
 	server.on('InternalError', function(req, res, err, cb) {
 	    err._customContent = 'Error';
-	    console.log('Error',err);
+	    console.log('InternalError',err);
 	    return cb();
 	});
 
-	server.on('ResourceNotFound', function(req, res, err, cb) {
+	server.on('ResourceNotFoundError', function(req, res, err, cb) {
 	    err._customContent = 'Not found';
-	    console.log('Not found');
+	    console.log('ResourceNotFound');
 	    console.log(err);
 	    return cb();
 	});
+
 
 /* /errors */
 
