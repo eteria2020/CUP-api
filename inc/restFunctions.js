@@ -210,7 +210,7 @@ module.exports = {
 			        	function(err, result) {
 				            done();
 				            if(logError(err,'error running query')) return false;
-				            sendOutJSON(res,200,'','');
+				            sendOutJSON(res,200,'Reservation '+ req.params.id +' deleted successfully',null);
 			        	}
 			        );
 		        }

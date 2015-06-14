@@ -120,6 +120,7 @@ var funcs = require('./inc/restFunctions');
 	                res.statusCode = body.statusCode || 500;
 
 	                if ( body.body ) {
+	                	res.statusCode = 400;
 	                    body = {
 	                        status: 400,
 	                        reason: "Invalid parameters",
