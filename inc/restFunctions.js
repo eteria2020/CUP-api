@@ -35,7 +35,7 @@ module.exports = {
 		        var query = '',params = [],queryString = '',isSingle = false;
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
-    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE (extract(epoch from beginning_ts::timestamp with time zone)::integer + length *60) >= extract(epoch from NOW()::timestamp with time zone)::integer) ";
+    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE AND (extract(epoch from beginning_ts::timestamp with time zone)::integer + length *60) >= extract(epoch from NOW()::timestamp with time zone)::integer) ";
 
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.headers.status !== 'undefined'){
