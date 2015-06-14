@@ -31,7 +31,7 @@ module.exports = {
 	getCars: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        if(logError(err,'error fetching cars from pool')) return false;
+		        logError(err,'error fetching cars from pool');
 		        var query = '',params = [],queryString = '',isSingle = false;
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
@@ -63,7 +63,7 @@ module.exports = {
 		        	params, 
 		        	function(err, result) {
 			            done();
-			            if(logError(err,'query error')) return false;
+			            logError(err,'query error');
 			            var outTxt = result.rowCount>0?'':'No cars found';
 			            var outJson = !isSingle?result.rows:result.rows[0];
 			            sendOutJSON(res,200,outTxt,outJson);		           
@@ -83,7 +83,7 @@ module.exports = {
 	getReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        if(logError(err,'error fetching reservations from pool')) return false;
+		        logError(err,'error fetching reservations from pool');
 		        var params,reservationQuery = '',isSingle = false;
 
 		        if(typeof  req.params.reservation !== 'undefined'){
@@ -100,7 +100,7 @@ module.exports = {
 		        	params, 
 		        	function(err, result) {
 			            done();
-			            if(logError(err,'query error')) return false;
+			            logError(err,'query error');
 			            var outTxt = result.rowCount>0?'':'No reservation found';
 			            var outJson = !isSingle?result.rows:result.rows[0];
 			            sendOutJSON(res,200,outTxt,outJson);
@@ -122,7 +122,7 @@ module.exports = {
 	getTrips: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        if(logError(err,'error fetching trips from pool')) return false;
+		        logError(err,'error fetching trips from pool');
 		        var query = '',params,queryTrip, isSingle = false;
 		        if(typeof  req.params.id === 'undefined'){
 		        	queryTrip = "";
@@ -137,7 +137,7 @@ module.exports = {
 		        	params, 
 		        	function(err, result) {
 			            done();
-			            if(logError(err,'query error')) return false;
+			            logError(err,'query error');
 			            var outTxt = result.rowCount>0?'':'No trips found';
 			            var outJson = !isSingle?result.rows:result.rows[0];
 			            sendOutJSON(res,200,outTxt,outJson);		           
@@ -168,21 +168,21 @@ module.exports = {
 	postReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        if(logError(err,'error adding reservation from pool')) return false;
+		        logError(err,'error adding reservation from pool');
 		        if(typeof  req.params.plate !== 'undefined' && req.params.plate !=''){
 			        client.query(
-			        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true)", 
+			        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true) RETURNING id", 
 			        	[req.params.plate,req.user.id], 
 			        	function(err, result) {
 				            done();
-				            if(logError(err,'error running query')) return false;
-				            sendOutJSON(res,200,'','');
+				            logError(err,'error running insert reservation query');
+				            sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
 				           
 			        	}
 			        );
 			    }else{
-			    	if(logError(err,'error running query')) return false;
-			    	sendOutJSON(res,400,'Invalid parameters',null);
+			    	logError(err,'error running post reservation: plate');
+			    	sendOutJSON(res,400,'Invalid parameter',null);
 			    }
 		    });
 		}
@@ -202,14 +202,14 @@ module.exports = {
 	delReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        if(logError(err,'error deleting reservation from pool')) return false;
+		        logError(err,'error deleting reservation from pool');
 		        if(typeof  req.params.id !== 'undefined'){
 			        client.query(
 			        	"DELETE FROM reservations WHERE id = $1 AND customer_id = $2", 
 			        	[req.params.id,req.user.id], 
 			        	function(err, result) {
 				            done();
-				            if(logError(err,'error running query')) return false;
+				            logError(err,'error running del reservation query');
 				            sendOutJSON(res,200,'Reservation '+ req.params.id +' deleted successfully',null);
 			        	}
 			        );
