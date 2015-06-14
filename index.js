@@ -22,11 +22,14 @@ var server;
 var defaultDistance = 300;
 
 // exports for modules
-exports.conString = conString;
-exports.port = port;
-exports.pg = pg;
-exports.validator = validator;
-
+var expo = {
+	conString: conString,
+	pg: pg,
+	port: port,
+	validator: validator,
+	defaultDistance: defaultDistance
+}
+exports.expo = expo;
 
 var funcs = require('./inc/restFunctions');
 
@@ -120,7 +123,7 @@ var funcs = require('./inc/restFunctions');
 	                res.statusCode = body.statusCode || 500;
 
 	                if ( body.body ) {
-	                	//console.log(body);
+	                	console.log('\nERROR\n\n'+body+'\n===============\n');
 	                	res.statusCode = 400;
 	                    body = {
 	                        status: 400,

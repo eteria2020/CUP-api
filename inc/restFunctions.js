@@ -1,7 +1,9 @@
-var pg = require('../index').pg;
-var conString = require('../index').conString;
-var port = require('../index').port;
-var validator = require('../index').validator;
+var expo = require('../index').expo;
+var pg = expo.pg;
+var conString = expo.conString;
+var port = expo.port;
+var validator = expo.validator;
+var defaultDistance = expo.defaultDistance;
 
 module.exports = {
 /* GET */
