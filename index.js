@@ -170,7 +170,7 @@ var funcs = require('./inc/restFunctions');
 	//server.use(restify.conditionalRequest());
 	server.use(restify.CORS());
 
-	server.listen(port);
+        server.listen({host:'api.sharengo.it',port:port});
 
 /* / server */
 
