@@ -1,0 +1,9 @@
+{
+ "apps" : [{
+	"name"	: "webservices",
+	"script": "index.js",
+	"merge_logs" : true,
+	"error_file" : "/var/log/services/webservices_error.log",
+	"out_file" : "/var/log/services/webservices_out.log"
+ }]
+}
