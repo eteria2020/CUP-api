@@ -6,7 +6,9 @@
 
 var config = require('./config');
 var conString = config.conString;
-var port = config.port;
+var standardPort = config.port;
+var unsecurePort =  config.unsecurePort;
+var logPath = config.logPath;
 
 // INIT
 var restify = require('restify');
@@ -14,9 +16,18 @@ var pg = require('pg').native;
 var fs = require('fs');
 var passport = require('passport');
 var validator = require('validator');
+var morgan = require('morgan');
+var bunyan = require('bunyan');
 
 var BasicStrategy = require('passport-http').BasicStrategy;
 var server;
+var unsecureServer;
+var log = bunyan.createLogger({
+  name: "ws",
+  streams: [{
+    path : logPath + 'webservices.log'
+  }]
+});
 
 
 var defaultDistance = 300;
@@ -25,11 +36,15 @@ var defaultDistance = 300;
 var expo = {
 	conString: conString,
 	pg: pg,
-	port: port,
+	port: standardPort,
 	validator: validator,
 	defaultDistance: defaultDistance
 }
 exports.expo = expo;
+
+fs.existsSync(logPath) || fs.mkdirSync(logPath)
+
+var accessLogStream = fs.createWriteStream(logPath + 'webservices_access.log', {flags: 'a'})
 
 var funcs = require('./inc/restFunctions');
 
@@ -61,6 +76,7 @@ var funcs = require('./inc/restFunctions');
 	        	!validator.isByteLength(pass,32,32)
 	        ){
 	        	console.error(Date.now(),'\n+++++++++++++++++\nvalidation error\n',user,pass);
+                log.error('Validation error %s,%s',user,pass);
 	            return fn(null, null);
 	        }
 
@@ -72,6 +88,7 @@ var funcs = require('./inc/restFunctions');
 
 		            if (err) {
 		                console.error('error running query', err);
+                        log.error('Error running query', err);
 		                return fn(null, null);
 		            }
 		            return fn(null, result.rows[0]);
@@ -110,42 +127,9 @@ var funcs = require('./inc/restFunctions');
 
 /* / auth */
 
+/* register server */
 
-/* server */
-
-	server = restify.createServer({
-	    certificate: fs.readFileSync('server.crt'),
-	    key: fs.readFileSync('server.key'),
-	    name: 'Sharengo',
-	    formatters: {
-	        'application/json': function customizedFormatJSON( req, res, body ) {
-	            if ( body instanceof Error ) {
-	                res.statusCode = body.statusCode || 500;
-
-	                if ( body.body ) {
-	                	console.log('\nERROR\n\n'+body+'\n===============\n');
-	                	res.statusCode = 400;
-	                    body = {
-	                        status: 400,
-	                        reason: "Invalid parameters",
-	                        time: Date.now() / 1000 | 0
-	                    };
-	                } else {
-	                    body = {
-	                        msg: body.message
-	                    };
-	                }
-	            } else if ( Buffer.isBuffer( body ) ) {
-	                body = body.toString( 'base64' );
-	            }
-
-	            var data = JSON.stringify( body );
-	            res.setHeader( 'Content-Length', Buffer.byteLength( data ) );
-
-	            return data;
-        	}
-   		}
-	});
+function registerServer(server) {
 
 	server.use(passport.initialize());
 
@@ -170,7 +154,7 @@ var funcs = require('./inc/restFunctions');
 	//server.use(restify.conditionalRequest());
 	server.use(restify.CORS());
 
-        server.listen({host:'api.sharengo.it',port:port});
+    server.use(morgan('combined',{ stream : accessLogStream}));
 
 /* / server */
 
@@ -202,44 +186,44 @@ var funcs = require('./inc/restFunctions');
 /* routes */
 	// user
 	server.get(
-		'/v2/user', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/user',
+		passport.authenticate('basic', {session: false}),
 		funcs.getUser
 	);
 
 
 	// cars
 	server.get(
-		'/v2/cars', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/cars',
+		passport.authenticate('basic', {session: false}),
 		funcs.getCars
 	);
 	server.get(
-		'/v2/cars/:plate', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/cars/:plate',
+		passport.authenticate('basic', {session: false}),
 		funcs.getCars
 	);
 
 
 	// reservations
 	server.get(
-		'/v2/reservations', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/reservations',
+		passport.authenticate('basic', {session: false}),
 		funcs.getReservations
 	);
 	server.get(
-		'/v2/reservations/:reservation', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/reservations/:reservation',
+		passport.authenticate('basic', {session: false}),
 		funcs.getReservations
 	);
 	server.post(
-		'/v2/reservations', 
-		passport.authenticate('basic', {session: false}), 
+		'/v2/reservations',
+		passport.authenticate('basic', {session: false}),
 		funcs.postReservations
 	);
 	server.del(
 		'/v2/reservations/:id',
-		passport.authenticate('basic', {session: false}), 
+		passport.authenticate('basic', {session: false}),
 		funcs.delReservations
 	);
 
@@ -256,12 +240,80 @@ var funcs = require('./inc/restFunctions');
 		funcs.getTrips
 	);
 	server.put(
-		'/v2/trips/:id', 
+		'/v2/trips/:id',
 		passport.authenticate('basic', {session: false}),
 		funcs.putTrips
 	);
 
 /* / routes */
+}
+
+/* / register server */
+
+
+/* server */
+
+    log.info('Webservice startup');
+    var responseFormatter = {
+            'application/json': function customizedFormatJSON( req, res, body ) {
+	            if ( body instanceof Error ) {
+	                res.statusCode = body.statusCode || 500;
+
+	                if ( body.body ) {
+	                	console.log('\nERROR\n\n'+body+'\n===============\n');
+	                	res.statusCode = 400;
+	                    body = {
+	                        status: 400,
+	                        reason: "Invalid parameters",
+	                        time: Date.now() / 1000 | 0
+	                    };
+	                } else {
+	                    body = {
+	                        msg: body.message
+	                    };
+	                }
+	            } else if ( Buffer.isBuffer( body ) ) {
+	                body = body.toString( 'base64' );
+	            }
+
+	            var data = JSON.stringify( body );
+	            res.setHeader( 'Content-Length', Buffer.byteLength( data ) );
+
+                console.log(req);
+	            return data;
+            }
+    };
+
+
+	server = restify.createServer({
+	    certificate: fs.readFileSync('ssl/server.cer'),
+	    key: fs.readFileSync('ssl/server.key'),
+        ca:  fs.readFileSync('ssl/ca.cer'),
+        requestCert:        true,
+        rejectUnauthorized: true,
+	    name: 'Sharengo',
+	    formatters: responseFormatter
+	});
+    log.info('Created standard server');
+
+
+    unsecureServer = restify.createServer({
+	    name: 'Sharengo',
+	    formatters: responseFormatter
+	});
+    log.info('Created unsecure debug server');
+
+    registerServer(server);
+    registerServer(unsecureServer);
+
+    server.listen({host:'api.sharengo.it',port:standardPort});
+    log.info('Listen standard server: ' + standardPort);
+
+    unsecureServer.listen({host:'api.sharengo.it',port:unsecurePort});
+    log.info('Listen unsecure debug server: ' + unsecurePort);
+
+    console.log("Started...");
+
 
 
 

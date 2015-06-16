@@ -10,7 +10,9 @@
     "pg-native":"1.8",
     "passport":"0.2.2",
     "passport-http":"0.2.2",
-    "validator" : "3.40"
+    "validator" : "3.40",
+    "morgan" : "1.6.0",
+    "bunyan" : "1.4.0"
   },
   "private":true,
   "repository": {
