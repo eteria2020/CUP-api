@@ -12,7 +12,10 @@ var logPath = config.logPath;
 
 // INIT
 var restify = require('restify');
-var pg = require('pg').native;
+var pg = require('pg');
+pg.defaults.poolSize = 25;
+pg.defaults.poolIdleTimeout=5000; // 5 sec
+
 var fs = require('fs');
 var passport = require('passport');
 var validator = require('validator');
@@ -26,7 +29,8 @@ var log = bunyan.createLogger({
   name: "ws",
   streams: [{
     path : logPath + 'webservices.log'
-  }]
+  }],
+  serializers: restify.bunyan.serializers
 });
 
 
@@ -65,6 +69,7 @@ var funcs = require('./inc/restFunctions');
 	 */
 	function validateUser(user, pass, fn) {
 	    pg.connect(conString, function(err, client, done) {
+	    	done();
 	        if (err) {
 	            console.error('error fetching users from pool', err);
 	            return fn(null, null);
@@ -76,11 +81,12 @@ var funcs = require('./inc/restFunctions');
 	        	!validator.isByteLength(pass,32,32)
 	        ){
 	        	console.error(Date.now(),'\n+++++++++++++++++\nvalidation error\n',user,pass);
+	        	console.log(validator.isEmail(user),validator.isAlphanumeric(pass),validator.isByteLength(pass,32,32));
                 log.error('Validation error %s,%s',user,pass);
 	            return fn(null, null);
 	        }
 
-	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email FROM customers WHERE email=$1 AND password=$2 AND enabled = true LIMIT 1', 
+	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE email=$1 AND password=$2 AND enabled = true LIMIT 1',
 	        	[user, pass], 
 	        	function(err, result) {
 	            	// release the client back to the pool
@@ -94,6 +100,8 @@ var funcs = require('./inc/restFunctions');
 		            return fn(null, result.rows[0]);
 	        	}
 	        );
+	        console.log('End validation', user, pass);
+	        log.error('End validation', user, pass);
 	    });
 	}
 
@@ -103,7 +111,8 @@ var funcs = require('./inc/restFunctions');
 	 */
 	passport.use(new BasicStrategy({},
 	    function(username, password, done) {
-	    	//console.log(username,password);
+	    	username = username.trim().toLowerCase();
+	    	console.log(username,password);
 	        process.nextTick(function() {
 	            validateUser(username, password, function(err, user) {
 
@@ -117,8 +126,8 @@ var funcs = require('./inc/restFunctions');
 	                    return done(null, false);
 	                }
 	                user.username = user.nome;
-	                //console.log('\n\n UTENTE : ' + user.email);
-	                //console.log(' PASSWORD : ' + user.password + '\n\n');
+	                console.log('\n\n UTENTE : ' + user.email);
+	                console.log(' PASSWORD : ' + user.password + '\n\n');
 	                return done(null, user);
 	            })
 	        });
@@ -154,7 +163,7 @@ function registerServer(server) {
 	//server.use(restify.conditionalRequest());
 	server.use(restify.CORS());
 
-    server.use(morgan('combined',{ stream : accessLogStream}));
+    server.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent" - :response-time ms',{ stream : accessLogStream}));
 
 /* / server */
 
@@ -178,7 +187,23 @@ function registerServer(server) {
 	    return cb();
 	});
 
-
+server.on('uncaughtException', function (req, res, route, err) {
+  console.log('======= server uncaughtException');
+  console.log(err);
+  res.send(200, { handler: 'server uncaughtException'});
+ /* if (err.status <= 399 && err.status >= 500) {
+    process.nextTick( process.exit(1) );    
+  }*/
+  // handleError(req, res, route, err);
+});
+process.on('uncaughtException', function (err) {
+  console.log('==== process uncaughtException');
+  err = err || {};
+  console.log('======== ', arguments);
+  /*if (!(err.status >= 400 && err.status <= 499)) {
+    process.nextTick( process.exit(1) );    
+  }*/
+});
 /* /errors */
 
 
@@ -195,15 +220,20 @@ function registerServer(server) {
 	// cars
 	server.get(
 		'/v2/cars',
-		passport.authenticate('basic', {session: false}),
+		//passport.authenticate('basic', {session: false}),
 		funcs.getCars
 	);
 	server.get(
 		'/v2/cars/:plate',
-		passport.authenticate('basic', {session: false}),
+		//passport.authenticate('basic', {session: false}),
 		funcs.getCars
 	);
 
+    server.put(
+        '/v2/cars/:plate',
+        passport.authenticate('basic', {session: false}),
+        funcs.putCars
+    );
 
 	// reservations
 	server.get(
@@ -227,6 +257,11 @@ function registerServer(server) {
 		funcs.delReservations
 	);
 
+	server.get(
+		'/v2/archive/reservations',
+		passport.authenticate('basic', {session: false}),
+		funcs.getArchiveReservations
+	);
 
 	// trips
 	server.get(
@@ -239,10 +274,28 @@ function registerServer(server) {
 		passport.authenticate('basic', {session: false}),
 		funcs.getTrips
 	);
+	server.get(
+		'/v2/trips/current',
+		passport.authenticate('basic', {session: false}),
+		funcs.getTrips
+	);
 	server.put(
 		'/v2/trips/:id',
 		passport.authenticate('basic', {session: false}),
 		funcs.putTrips
+	);
+
+
+	server.pre(function (request, response, next) {
+	    request.log.info({ req: request,params:request.params }, 'REQUEST');
+	    next();
+	});
+	
+	// pois
+	server.get(
+		'/v2/pois',
+		//passport.authenticate('basic', {session: false}),
+		funcs.getPois
 	);
 
 /* / routes */
@@ -260,7 +313,8 @@ function registerServer(server) {
 	                res.statusCode = body.statusCode || 500;
 
 	                if ( body.body ) {
-	                	console.log('\nERROR\n\n'+body+'\n===============\n');
+	                	console.log('\nERROR\n\n===============\n');
+	                	console.log(body);
 	                	res.statusCode = 400;
 	                    body = {
 	                        status: 400,
@@ -279,7 +333,6 @@ function registerServer(server) {
 	            var data = JSON.stringify( body );
 	            res.setHeader( 'Content-Length', Buffer.byteLength( data ) );
 
-                console.log(req);
 	            return data;
             }
     };
@@ -292,24 +345,26 @@ function registerServer(server) {
         requestCert:        true,
         rejectUnauthorized: true,
 	    name: 'Sharengo',
-	    formatters: responseFormatter
+	    formatters: responseFormatter,
+	    log: log
 	});
     log.info('Created standard server');
 
 
     unsecureServer = restify.createServer({
 	    name: 'Sharengo',
-	    formatters: responseFormatter
+	    formatters: responseFormatter,
+	    log: log
 	});
     log.info('Created unsecure debug server');
 
     registerServer(server);
     registerServer(unsecureServer);
 
-    server.listen({host:'api.sharengo.it',port:standardPort});
+    server.listen({host:'0.0.0.0',port:standardPort});
     log.info('Listen standard server: ' + standardPort);
 
-    unsecureServer.listen({host:'api.sharengo.it',port:unsecurePort});
+    unsecureServer.listen({host:'0.0.0.0',port:unsecurePort});
     log.info('Listen unsecure debug server: ' + unsecurePort);
 
     console.log("Started...");

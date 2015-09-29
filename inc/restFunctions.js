@@ -18,6 +18,7 @@ module.exports = {
 		if(sanitizeInput(req,res)){
 			delete req.user.id;
 			delete req.user.password;
+            delete req.user.card_code;
 			req.user.pin = req.user.pin.primary;
 		    sendOutJSON(res,200,'',req.user);
 		}
@@ -33,48 +34,186 @@ module.exports = {
 	getCars: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        logError(err,'error fetching cars from pool');
+
+	            if (err) {
+    				done();
+    				console.log('Errore getCars connect',err);
+  		        	next.ifError(err);
+                }
+
 		        var query = '',params = [],queryString = '',isSingle = false;
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
-    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE AND (extract(epoch from beginning_ts::timestamp with time zone)::integer + length *60) >= extract(epoch from NOW()::timestamp with time zone)::integer) ";
+    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
+    			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
+    			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
+    			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
 		        if(typeof  req.params.plate === 'undefined'){
-			        if(typeof req.headers.status !== 'undefined'){
+			        if(typeof req.params.status !== 'undefined'){
 		        		queryString += ' AND status = $4 ';
-		        		params[3] = req.headers.status;
+		        		params[3] = req.params.status;
 		        	}
-		        	if(typeof req.headers.lat !== 'undefined' &&  typeof req.headers.lon  !== 'undefined'){
+		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
 		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
-		        		params[0] = req.headers.lat;
-		        		params[1] = req.headers.lon;
-		        		params[2] = req.headers.radius || defaultDistance;
+		        		params[0] = req.params.lat;
+		        		params[1] = req.params.lon;
+		        		params[2] = req.params.radius || defaultDistance;
 		        	}
-	        		query = "SELECT plate,model,manufactures as maker,latitude as lat,longitude as lon,int_cleanliness as internal_cleanliness,ext_cleanliness as external_cleanliness,battery as fuel_percentage FROM cars WHERE true " + queryString;
+	        		query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE true " + queryString;
 		        }else{
 		        	// single car
-		        	query = "SELECT plate,model,manufactures as maker,latitude as lat,longitude as lon,int_cleanliness as internal_cleanliness,ext_cleanliness as external_cleanliness,battery as fuel_percentage FROM cars WHERE plate = $1";
+		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
-
-		        query += freeCarCond; 
-
+		        if(!isSingle){
+		        	query += freeCarCond; 
+		        }
+		        
 		        client.query(
 		        	query, 
-		        	params, 
+		        	params,
 		        	function(err, result) {
 			            done();
-			            logError(err,'query error');
-			            var outTxt = result.rowCount>0?'':'No cars found';
-			            var outJson = !isSingle?result.rows:result.rows[0];
-			            sendOutJSON(res,200,outTxt,outJson);		           
+			            if (err) {
+		    				console.log('Errore getCars select',err);
+		  		        	next.ifError(err);
+		                }
+			            var outTxt = '',outJson = null;
+			            console.log('getCars select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No cars found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);
 		        	}
 		        );
 		    });
 		}
 	    return next();
 	},
+
+    /* PUT */
+	/**
+	 * updates cars
+	 * @param  array   req  request
+	 * @param  array   res  response
+	 * @param  function next handler
+	 */
+	putCars: function(req, res, next) {
+
+        var outCode=200;
+   	    var outTxt='';
+        var outJson=null;
+
+
+		if(!sanitizeInput(req,res)){
+           outCode=400;
+           outTxt="Invalid request";
+           sendOutJSON(res,400,outTxt,outJson);
+		}  else
+  	        if(typeof  req.params.plate !== 'undefined' && req.params.plate !='' &&  typeof req.params.action !== 'undefined'){
+
+             var plate =  req.params.plate;
+             var action = req.params.action;
+
+	         pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore putCars connect',err);
+  		        	next.ifError(err);
+                }
+
+                var cmd = '';
+                switch (action.toLowerCase()) {
+                  case 'open' :
+                    cmd = 'OPEN_TRIP';
+                    break;
+                  case 'close':
+                    cmd = 'CLOSE_TRIP';
+                    break;
+                  case 'park':
+                    cmd = 'PARK_TRIP';
+                    break;
+                  case 'unpark':
+                    cmd = 'UNPARK_TRIP';
+                    break;
+
+                  default:
+                  	done();
+                    outTxt = "Invalid action";
+                    sendOutJSON(res,400,outTxt,outJson);
+                    return next();
+                }
+
+				client.query(
+		        	"SELECT EXISTS(SELECT plate FROM cars WHERE plate=$1)", 
+		        	[plate], 
+		        	function(err, result) {
+		        		done();
+			            if (err) {		    				
+		    				console.log('Errore putCars exists',err);
+		  		        	next.ifError(err);
+		                }
+
+			            if(result.rows[0].exists){
+			                if (cmd != '') {
+								client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1)",[plate],function(err,resultTripActive){
+									done();
+									if (err) {		    				
+										console.log('Errore if exists trips ',err);
+										next.ifError(err);
+									}
+
+									if(resultTripActive.rows[0].exists && cmd == 'OPEN_TRIP'){
+										console.log('Errore trip active exists',err);
+										sendOutJSON(res,400,'Cannot open trip on active car',null);
+						            	return next();
+									}else{
+										var sql = "INSERT INTO commands (car_plate, queued, to_send, command, txtarg1) values ($1, now(), true, $2 , $3 )";
+										var params = [ plate , cmd, req.user.card_code ];
+										client.query(sql,
+											params,
+											function(err, result) {
+												done();
+											    if (err) {		    				
+													console.log('Errore putCars insert',err);
+										        	next.ifError(err);
+											    }
+
+											    outTxt="OK";
+											    sendOutJSON(res,200,outTxt,outJson);
+											}
+										);										
+									}
+								});
+			                } else {
+			                  done();
+			                }
+			            }else{
+			            	console.log('Errore getCars NOT exists',err);
+			            	sendOutJSON(res,400,'Invalid car plate',null);
+		                    return next();
+			            }
+			        }
+			    );
+             });
+
+
+
+	       } else {
+	            outTxt="Invalid parameters";
+	            console.error('Invalid putcars parameters', req.params);
+	            sendOutJSON(res,400,outTxt,outJson);
+		}
+	    return next();
+	},
+
+/* / PUT */
+
 
 	/**
 	 * get reservation details
@@ -85,26 +224,76 @@ module.exports = {
 	getReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        logError(err,'error fetching reservations from pool');
-		        var params,reservationQuery = '',isSingle = false;
+
+	            if (err) {
+    				done();
+    				console.log('Errore getReservations connect',err);
+  		        	next.ifError(err);
+                }
+
+		        var params = [],nparam,reservationQuery = '',isSingle = false;
 
 		        if(typeof  req.params.reservation !== 'undefined'){
 		        	reservationQuery = ' AND id = $2';
-		        	params = [req.user.id,req.params.reservation];
+		        	params[0] = req.user.id;
+		        	params[1] = req.params.reservation;
 		        	isSingle = true;
+		        	nparam = 2;
 		        }else{
 		        	reservationQuery = '';
-		        	params = [req.user.id];
+		        	params[0] = req.user.id;
+		        	nparam =1;
+		        }
+
+				if(typeof  req.params.active !== 'undefined'){
+					if(req.params.active == 'true'){
+						reservationQuery += ' AND active IS TRUE';
+					}else{
+						reservationQuery += ' AND active IS FALSE';
+					}		        	
+		        }else{
+		        	reservationQuery += ' AND active IS TRUE';
+		        }
+		       
+
+		        if(typeof  req.params.from !== 'undefined'){
+		        	reservationQuery += ' AND cast(extract(epoch from ts) as integer) >= $'+(nparam+1);
+		        	params[nparam] = req.params.from; 
+		        	nparam++;
+		        }
+
+		        if(typeof  req.params.to !== 'undefined'){
+		        	reservationQuery += ' AND cast(extract(epoch from ts) as integer) <= $'+(nparam+1);
+		        	params[nparam] = req.params.to; 
+		        	nparam++;
+		        }
+
+
+		         
+		        reservationQuery += ' ORDER BY ts DESC';
+
+		        if(typeof  req.params.quantity !== 'undefined'){
+		        	reservationQuery += ' LIMIT $'+(nparam+1);
+		        	params[nparam] = req.params.quantity; 
+		        	nparam++;
 		        }
 
 		        client.query(
-		        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active, car_plate, length FROM reservations WHERE customer_id = $1 " + reservationQuery, 
-		        	params, 
+		        	"SELECT id,extract(epoch from ts::timestamp with time zone)::integer as reservation_timestamp,extract(epoch from beginning_ts::timestamp with time zone)::integer as timestamp_start,active as is_active, car_plate, length FROM reservations WHERE customer_id = $1 " + reservationQuery,
+		        	params,
 		        	function(err, result) {
 			            done();
-			            logError(err,'query error');
-			            var outTxt = result.rowCount>0?'':'No reservation found';
-			            var outJson = !isSingle?result.rows:result.rows[0];
+			            if (err) {
+		    				console.log('Errore getReservations select',err);
+		  		        	next.ifError(err);
+		                }
+			            var outTxt = '',outJson = null;
+			            console.log('getReservations select done',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No reservation found';
+			            }
 			            sendOutJSON(res,200,outTxt,outJson);
 			           
 		        	}
@@ -124,24 +313,85 @@ module.exports = {
 	getTrips: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        logError(err,'error fetching trips from pool');
-		        var query = '',params,queryTrip, isSingle = false;
-		        if(typeof  req.params.id === 'undefined'){
-		        	queryTrip = "";
-		        	params = [req.user.id];
+
+	            if (err) {
+    				done();
+    				console.log('Errore getTrips ',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',queryJoin = '',queryFrom = '',params = [],nparam,queryTrip='', isSingle = false;
+
+		        if(req.path()=='/v2/trips/current'){
+		        	params[0] = req.user.id;
+		        	nparam = 1;
+		        	queryTrip += ' AND timestamp_end IS NULL LIMIT 1';
+		        	queryJoin += ' INNER JOIN cars on trips.car_plate = cars.plate ';
+		        	queryFrom += ',parking,park_enabled';
+		        	console.log('trips / current ',queryTrip);
+
 		        }else{
-		        	queryTrip = " AND id = $2";
-		        	params = [req.user.id,req.params.id];
-		        	isSingle = true;
+
+			        if(typeof  req.params.id === 'undefined'){
+			        	queryTrip = "";
+			        	params[0] = req.user.id;
+			        	nparam = 1;
+			        }else{
+			        	queryTrip = " AND id = $2";
+			        	params[0] = req.user.id;
+			        	params[1] = req.params.id;
+			        	nparam = 2;
+			        	isSingle = true;
+			        }
+
+					if(typeof  req.params.active !== 'undefined'){
+						if(req.params.active == 'true'){
+							queryTrip += ' AND timestamp_end IS NULL';
+						}else{
+							queryTrip += ' AND timestamp_end IS NOT NULL ';
+						}		        	
+			        }else{
+			        	queryTrip += ' AND timestamp_end IS NULL ';
+			        }			       
+
+			        if(typeof  req.params.from !== 'undefined'){
+			        	queryTrip += ' AND cast(extract(epoch from timestamp_beginning) as integer) >= $'+(nparam+1);
+			        	params[nparam] = req.params.from; 
+			        	nparam++;
+			        }
+
+			        if(typeof  req.params.to !== 'undefined'){
+			        	queryTrip += ' AND cast(extract(epoch from timestamp_beginning) as integer) <= $'+(nparam+1);
+			        	params[nparam] = req.params.to; 
+			        	nparam++;
+			        }
+
+					queryTrip += ' ORDER BY timestamp_beginning DESC';
+
+			        if(typeof  req.params.quantity !== 'undefined'){
+			        	queryTrip += ' LIMIT $'+(nparam+1);
+			        	params[nparam] = req.params.quantity; 
+			        	nparam++;
+			        }
 		        }
+
+
 		        client.query(
-		        	"SELECT id,car_plate,extract(epoch from timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from timestamp_end::timestamp with time zone)::integer as timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds FROM trips WHERE customer_id = $1 "+queryTrip, 
+		        	"SELECT id,car_plate,extract(epoch from timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from timestamp_end::timestamp with time zone)::integer as timestamp_end,km_beginning as km_start,km_end,latitude_beginning as lat_start,latitude_end as lat_end,longitude_beginning as lon_start,longitude_end as lon_end,park_seconds"+queryFrom+" FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
 		        	params, 
 		        	function(err, result) {
 			            done();
-			            logError(err,'query error');
-			            var outTxt = result.rowCount>0?'':'No trips found';
-			            var outJson = !isSingle?result.rows:result.rows[0];
+			            if (err) {
+		    				console.log('Errore getTrips select',err);
+		  		        	next.ifError(err);
+		                }
+			            console.log('getTrips select ',err);
+			            var outTxt = '',outJson = null;
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No trips found';
+			            }
 			            sendOutJSON(res,200,outTxt,outJson);		           
 		        	}
 		        );
@@ -150,6 +400,89 @@ module.exports = {
 	    return next();
 	},
 
+	/**
+	 * get pois
+	 * @param  array   req  request
+	 * @param  array   res  response
+	 * @param  function next handler
+	 */
+	getPois: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getPois connect',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',params = [],queryString = '',isSingle = false;
+
+		        query = "SELECT * FROM pois WHERE true"
+
+
+		        client.query(
+		        	query, 
+		        	params, 
+		        	function(err, result) {
+			            done();
+			            if (err) {
+		    				console.log('Errore getPois select',err);
+		  		        	next.ifError(err);
+		                }
+			            var outTxt = '',outJson = null;
+			            console.log('getPois select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No pois found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);		           
+		        	}
+		        );
+		    });
+		}
+        return next();
+	},
+	/**
+	 * get reservations archive
+	 * @param  array   req  request
+	 * @param  array   res  response
+	 * @param  function next handler
+	 */
+	getArchiveReservations: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getArchiveReservations connect',err);
+  		        	next.ifError(err);
+                }
+
+		        client.query(
+		        	"SELECT * FROM reservations_archive WHERE customer_id = $1", 
+		        	[req.user.id], 
+		        	function(err, result) {
+			            done();
+			            if (err) {
+		    				console.log('Errore getArchiveReservations select',err);
+		  		        	next.ifError(err);
+		                }
+			            var outTxt = '',outJson = null;
+			            console.log('getArchiveReservations select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = result.rows;
+			            }else{
+			            	outTxt ='No reservations in archive found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);		           
+		        	}
+		        );
+		    });
+		}
+        return next();
+	},
 /* / GET */
 
 /* POST */
@@ -170,20 +503,66 @@ module.exports = {
 	postReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        logError(err,'error adding reservation from pool');
+
+	            if (err) {
+    				done();
+    				console.log('Errore postReservations connect ',err);
+  		        	next.ifError(err);
+                }
+
 		        if(typeof  req.params.plate !== 'undefined' && req.params.plate !=''){
-			        client.query(
-			        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send) VALUES (NOW(),$1,$2,NOW(),true,30,true) RETURNING id", 
-			        	[req.params.plate,req.user.id], 
+
+		        	client.query(
+			        	"SELECT EXISTS(SELECT plate FROM cars WHERE plate=$1)", 
+			        	[req.params.plate], 
 			        	function(err, result) {
 				            done();
-				            logError(err,'error running insert reservation query');
-				            sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
+    			            if (err) {
+			    				console.log('Errore postReservations exits car',err);
+			  		        	next.ifError(err);
+			                }
+				            if(result.rows[0].exists){
+			            		client.query(
+						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)", 
+						        	[req.user.id,req.params.plate], 
+						        	function(err, result) {
+							            done();
+							            if (err) {
+						    				console.log('Errore postReservations exists reservation ',err);
+						  		        	next.ifError(err);
+						                }
+							            console.log('postReservations select ',err);
+							            if(result.rows[0].exists){
+				            				sendOutJSON(res,200,'Error: Only 1 reservation allowed',null);
+							            }else{
+							                var cards = JSON.stringify([req.user.card_code]);
+                                            console.error(cards);
+									        client.query(
+									        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1800,true,$3) RETURNING id",
+									        	[req.params.plate,req.user.id,cards],
+									        	function(err, result) {
+										            done();
+				            			            if (err) {
+									    				console.log('Errore getPois insert ',err);
+									  		        	next.ifError(err);
+									                }
+										            console.log('postReservations insert ',err);
+										            sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
+										           
+									        	}
+									        );
+							            }							           
+						        	}
+						        );
+				            }else{
+				            	console.log('Errore postReservations car NOT exists ',err);
+				            	sendOutJSON(res,400,'Invalid car plate',null);
+				            }
 				           
 			        	}
 			        );
 			    }else{
-			    	logError(err,'error running post reservation: plate');
+			    	console.log('Errore postReservations invalid parameters ',err);
 			    	sendOutJSON(res,400,'Invalid parameter',null);
 			    }
 		    });
@@ -204,14 +583,25 @@ module.exports = {
 	delReservations: function(req, res, next) {
 		if(sanitizeInput(req,res)){
 			pg.connect(conString, function(err, client, done) {
-		        logError(err,'error deleting reservation from pool');
+
+	            if (err) {
+    				done();
+    				console.log('Errore delReservations connect ',err);
+  		        	next.ifError(err);
+                }
+
+
 		        if(typeof  req.params.id !== 'undefined'){
 			        client.query(
-			        	"DELETE FROM reservations WHERE id = $1 AND customer_id = $2", 
+			        	"UPDATE reservations SET active = FALSE, to_send = TRUE, deleted_ts = NOW()  WHERE id = $1 AND customer_id = $2", 
 			        	[req.params.id,req.user.id], 
 			        	function(err, result) {
 				            done();
-				            logError(err,'error running del reservation query');
+    			            if (err) {
+			    				console.log('Errore delReservations delete',err);
+			  		        	next.ifError(err);
+			                }
+				            console.log('delReservations delete ',err);
 				            sendOutJSON(res,200,'Reservation '+ req.params.id +' deleted successfully',null);
 			        	}
 			        );
@@ -258,19 +648,7 @@ module.exports = {
 	    });
 	}
 
-	/**
-	 * console log errors
-	 * @param  bool error true on error
-	 * @param  string msg  error message
-	 */
-	function logError(error,msg){
-		if(error){
-			console.error(msg);
-			return true;
-		}else{
-			return false;
-		}		
-	}
+
 
 	/**
 	 * console log request
@@ -303,32 +681,32 @@ module.exports = {
 				(req.params.plate != '') && 
 				(
 					(!validator.isAlphanumeric(req.params.plate)) ||  
-	        		(!validator.isByteLength(req.params.plate,7,8))
+	        		(!validator.isByteLength(req.params.plate,5,9))
 	        	)
         	) ||
 
 			(
-				(typeof req.headers.status != 'undefined') && 
-				(req.headers.status != '') && 
-				(!validator.isAlphanumeric(req.headers.status)) 
+				(typeof req.params.status != 'undefined') && 
+				(req.params.status != '') && 
+				(!validator.isAlphanumeric(req.params.status)) 
 			) ||
 
 			(
-				(typeof req.headers.lat != 'undefined') && 
-				(req.headers.lat != '') && 
-				(!validator.isFloat(req.headers.lat)) 
+				(typeof req.params.lat != 'undefined') && 
+				(req.params.lat != '') && 
+				(!validator.isFloat(req.params.lat)) 
 			) ||
 
 			(
-				(typeof req.headers.lon != 'undefined') && 
-				(req.headers.lon != '') && 
-				(!validator.isFloat(req.headers.lon)) 
+				(typeof req.params.lon != 'undefined') && 
+				(req.params.lon != '') && 
+				(!validator.isFloat(req.params.lon)) 
 			) ||
 
 			(
-				(typeof req.headers.radius != 'undefined') && 
-				(req.headers.radius != '') && 
-				(!validator.isInt(req.headers.radius)) 
+				(typeof req.params.radius != 'undefined') && 
+				(req.params.radius != '') && 
+				(!validator.isInt(req.params.radius)) 
 			) ||
 
 			(
@@ -340,11 +718,43 @@ module.exports = {
 			(
 				(typeof req.params.id != 'undefined') && 
 				(req.params.id != '') && 
-				(!validator.isInt(req.params.id)) 
+				(!validator.isInt(req.params.id)) &&
+			 	(req.params.id != 'current')
+			)||
+
+			(
+				(typeof req.params.active != 'undefined') && 
+				(req.params.active != '') && 
+				(!validator.isBoolean(req.params.active)) 
+			)||
+
+			(
+				(typeof req.params.quantity != 'undefined') && 
+				(req.params.quantity != '') && 
+				(!validator.isInt(req.params.quantity)) 
+			)||
+
+			(
+				(typeof req.params.from != 'undefined') && 
+				(req.params.from != '') && 
+				(!validator.isInt(req.params.from)) 
+			)||
+
+			(
+				(typeof req.params.to != 'undefined') && 
+				(req.params.to != '') && 
+				(!validator.isInt(req.params.to)) 
+			)||
+
+			(
+				(typeof req.params.action != 'undefined') && 
+				(req.params.action != '') && 
+				(!validator.isAlphanumeric(req.params.action)) 
 			)
 
 		){
 			console.log('\n+++++++++++++++++\nvalidation error\n');
+			console.log(req.params);
 			sendOutJSON(res,400,'Invalid parameters',null);
 			return false;
 		}else{
