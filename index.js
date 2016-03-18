@@ -86,7 +86,7 @@ var funcs = require('./inc/restFunctions');
 	            return fn(null, null);
 	        }
 
-	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE email=$1 AND password=$2 AND enabled = true LIMIT 1',
+	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
 	        	[user, pass], 
 	        	function(err, result) {
 	            	// release the client back to the pool
