@@ -55,14 +55,14 @@ var funcs = require('./inc/restFunctions');
 //restify.CORS.ALLOW_HEADERS.push('Accept-Encoding');
 //restify.CORS.ALLOW_HEADERS.push('Accept-Language');
 
-// / INIT 
+// / INIT
 
 
 /* auth */
 
 	/**
 	 * Validate user agains postgres
-	 * @param  urlencoded string   	user 
+	 * @param  urlencoded string   	user
 	 * @param  md5 string 		   	pass
 	 * @param  function 			fn  callback
 	 * @return array        		error, result
@@ -76,8 +76,8 @@ var funcs = require('./inc/restFunctions');
 	        }
 
 	        if(
-	        	!validator.isEmail(user) || 
-	        	!validator.isAlphanumeric(pass) || 
+	        	!validator.isEmail(user) ||
+	        	!validator.isAlphanumeric(pass) ||
 	        	!validator.isByteLength(pass,32,32)
 	        ){
 	        	console.error(Date.now(),'\n+++++++++++++++++\nvalidation error\n',user,pass);
@@ -86,18 +86,38 @@ var funcs = require('./inc/restFunctions');
 	            return fn(null, null);
 	        }
 
-	        client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
-	        	[user, pass], 
+	        client.query('SELECT id,enabled,password FROM customers WHERE LOWER(email)=$1 LIMIT 1',
+	        	[user],
 	        	function(err, result) {
 	            	// release the client back to the pool
 		            done();
 
 		            if (err) {
-		                console.error('error running query', err);
+	                	console.error('error running query', err);
                         log.error('Error running query', err);
 		                return fn(null, null);
+		            }else if ( result.rows.length<=0) {
+		                return fn(null, 1);
+		            }else if ( typeof result.rows[0] !== 'undefined' && !result.rows[0].enabled) {
+		                return fn(null, 2);
+		            }else if ( result.rows[0].password != pass) {
+		                return fn(null, 3);
+		            }else{
+						client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
+				        	[user, pass],
+				        	function(err, result) {
+				            	// release the client back to the pool
+					            done();
+
+					            if (err) {
+					                console.error('error running query', err);
+			                        log.error('Error running query', err);
+					                return fn(null, null);
+					            }
+					            return fn(null, result.rows[0]);
+				        	}
+				        );
 		            }
-		            return fn(null, result.rows[0]);
 	        	}
 	        );
 	        console.log('End validation', user, pass);
@@ -115,14 +135,29 @@ var funcs = require('./inc/restFunctions');
 	    	console.log(username,password);
 	        process.nextTick(function() {
 	            validateUser(username, password, function(err, user) {
-
 	                if (err) {
-	                    return done(err);
+	               		return done(err);
+	                }
+					if( user === 1){
+						var err = new Error('not_found');
+						err.statusCode = 404;
+						return done(err);
+                	}
+                	if( user === 2) {
+                		var err = new Error('user_disabled');
+						err.statusCode = 403;
+						return done(err);
+	                }
+	                if( user === 3) {
+                		var err = new Error('invalid_credentials');
+						err.statusCode = 403;
+						return done(err);
 	                }
 	                if (!user) {
 	                    return done(null, false);
 	                }
 	                if (user.password != password) {
+	                	console.log('passport 6');
 	                    return done(null, false);
 	                }
 	                user.username = user.nome;
@@ -192,7 +227,7 @@ server.on('uncaughtException', function (req, res, route, err) {
   console.log(err);
   res.send(200, { handler: 'server uncaughtException'});
  /* if (err.status <= 399 && err.status >= 500) {
-    process.nextTick( process.exit(1) );    
+    process.nextTick( process.exit(1) );
   }*/
   // handleError(req, res, route, err);
 });
@@ -201,7 +236,7 @@ process.on('uncaughtException', function (err) {
   err = err || {};
   console.log('======== ', arguments);
   /*if (!(err.status >= 400 && err.status <= 499)) {
-    process.nextTick( process.exit(1) );    
+    process.nextTick( process.exit(1) );
   }*/
 });
 /* /errors */
@@ -290,7 +325,7 @@ process.on('uncaughtException', function (err) {
 	    request.log.info({ req: request,params:request.params }, 'REQUEST');
 	    next();
 	});
-	
+
 	// pois
 	server.get(
 		'/v2/pois',
@@ -322,9 +357,16 @@ process.on('uncaughtException', function (err) {
 	                        time: Date.now() / 1000 | 0
 	                    };
 	                } else {
-	                    body = {
-	                        msg: body.message
-	                    };
+	                	if(res.statusCode == 403 || res.statusCode == 404){
+	                		body = {
+	                			status: res.statusCode,
+		                        code: body.message
+		                    };
+	                	}else{
+							body = {
+		                        msg: body.message
+		                    };
+	                	}
 	                }
 	            } else if ( Buffer.isBuffer( body ) ) {
 	                body = body.toString( 'base64' );
