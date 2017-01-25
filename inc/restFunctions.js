@@ -523,7 +523,7 @@ module.exports = {
 			                }
 				            if(result.rows[0].exists){
 			            		client.query(
-						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)", 
+						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)as reservation, EXISTS(SELECT plate FROM cars WHERE plate=$2 AND status!='operative') as status, EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate=$2) as trip", 
 						        	[req.user.id,req.params.plate], 
 						        	function(err, result) {
 							            done();
@@ -532,8 +532,8 @@ module.exports = {
 						  		        	next.ifError(err);
 						                }
 							            console.log('postReservations select ',err);
-							            if(result.rows[0].exists){
-				            				sendOutJSON(res,200,'Error: Only 1 reservation allowed',null);
+							            if(result.rows[0].reservation || result.rows[0].status || result.rows[0].trip){
+				            				sendOutJSON(res,200,'Error: reservation:'+result.rows[0].reservation+' - status:'+ result.rows[0].status +' - trip:'+ result.rows[0].trip ,null);
 							            }else{
 							                var cards = JSON.stringify([req.user.card_code]);
                                             console.error(cards);
