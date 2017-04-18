@@ -18,6 +18,7 @@ pg.defaults.poolIdleTimeout=5000; // 5 sec
 
 var fs = require('fs');
 var passport = require('passport');
+var passportiOS = require('passport');
 var validator = require('validator');
 var morgan = require('morgan');
 var bunyan = require('bunyan');
@@ -103,7 +104,7 @@ var funcs = require('./inc/restFunctions');
 		            }else if ( result.rows[0].password != pass) {
 		                return fn(null, 3);
 		            }else{
-						client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
+						client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled,\'0\' as bonus FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
 				        	[user, pass],
 				        	function(err, result) {
 				            	// release the client back to the pool
@@ -168,6 +169,46 @@ var funcs = require('./inc/restFunctions');
 	        });
 	    }
 	));
+	
+	passportiOS.use(new BasicStrategy({},
+	    function(username, password, done) {
+	    	username = username.trim().toLowerCase();
+	    	console.log(username,password);
+	        process.nextTick(function() {
+	            validateUser(username, password, function(err, user) {
+	                if (err) {
+	               		return done(err);
+	                }
+					if( user === 1){
+						var err = new Error('not_found');
+						err.statusCode = 404;
+						return done(err);
+                	}
+                	if( user === 2) {
+                		var err = new Error('user_disabled');
+						err.statusCode = 405;
+						return done(err);
+	                }
+	                if( user === 3) {
+                		var err = new Error('invalid_credentials');
+						err.statusCode = 406;
+						return done(err);
+	                }
+	                if (!user) {
+	                    return done(null, false);
+	                }
+	                if (user.password != password) {
+	                	console.log('passportiOS 6');
+	                    return done(null, false);
+	                }
+	                user.username = user.nome;
+	                console.log('\n\n UTENTE : ' + user.email);
+	                console.log(' PASSWORD : ' + user.password + '\n\n');
+	                return done(null, user);
+	            })
+	        });
+	    }
+	));
 
 /* / auth */
 
@@ -176,6 +217,7 @@ var funcs = require('./inc/restFunctions');
 function registerServer(server) {
 
 	server.use(passport.initialize());
+	server.use(passportiOS.initialize());
 
 	//server.use(restify.acceptParser(server.acceptable));
 	//server.use(restify.authorizationParser());
@@ -250,6 +292,14 @@ process.on('uncaughtException', function (err) {
 		passport.authenticate('basic', {session: false}),
 		funcs.getUser
 	);
+	
+	
+	// useriOS
+	server.get(
+		'/v3/user',
+		passportiOS.authenticate('basic', {session: false}),
+		funcs.getUser
+	);
 
 
 	// cars
@@ -257,6 +307,11 @@ process.on('uncaughtException', function (err) {
 		'/v2/cars',
 		//passport.authenticate('basic', {session: false}),
 		funcs.getCars
+	);
+	server.get(
+		'/v3/cars',
+		//passport.authenticate('basic', {session: false}),
+		funcs.getCarsLight
 	);
 	server.get(
 		'/v2/cars/:plate',

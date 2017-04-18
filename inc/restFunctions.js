@@ -15,12 +15,41 @@ module.exports = {
 	 * @param  function next handler
 	 */
 	getUser: function(req, res, next) {
+		var bonus=0;
 		if(sanitizeInput(req,res)){
-			delete req.user.id;
-			delete req.user.password;
-            delete req.user.card_code;
-			req.user.pin = req.user.pin.primary;
-		    sendOutJSON(res,200,'',req.user);
+			
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getUser connect',err);
+  		        	next.ifError(err);
+                }
+
+               
+
+				client.query(
+		        	"SELECT SUM(residual)as bonus FROM customers_bonus WHERE customer_id=$1 AND (valid_to <now() OR valid_to IS NULL)", 
+		        	[req.user.id], 
+		        	function(err, result) {
+		        		done();
+			            if (err) {		    				
+		    				console.log('Errore getUser count',err);
+		  		        	next.ifError(err);
+		                }
+
+			            
+			                req.user.bonus=result.rows[0].bonus;
+							delete req.user.id;
+							delete req.user.password;
+							delete req.user.card_code;
+							req.user.pin = req.user.pin.primary;
+							sendOutJSON(res,200,'',req.user);
+			        }
+			    );
+             });
+			
+			
 		}
 	    return next();
 	},
@@ -55,12 +84,76 @@ module.exports = {
 		        		params[3] = req.params.status;
 		        	}
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
-		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
+		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
 		        		params[0] = req.params.lat;
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
 	        		query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE true " + queryString;
+		        }else{
+		        	// single car
+		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
+		        	params = [req.params.plate];
+		        	isSingle =true; 
+		        }
+		        if(!isSingle){
+		        	query += freeCarCond; 
+		        }
+		        
+		        client.query(
+		        	query, 
+		        	params,
+		        	function(err, result) {
+			            done();
+			            if (err) {
+		    				console.log('Errore getCars select',err);
+		  		        	next.ifError(err);
+		                }
+			            var outTxt = '',outJson = null;
+			            console.log('getCars select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No cars found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);
+		        	}
+		        );
+		    });
+		}
+	    return next();
+	},
+	
+	getCarsLight: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getCars connect',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',params = [],queryString = '',isSingle = false;
+		        var queryParams = [null,null,null,null];
+		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
+    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
+    			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
+    			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
+    			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
+
+		        if(typeof  req.params.plate === 'undefined'){
+			        if(typeof req.params.status !== 'undefined'){
+		        		queryString += ' AND status = $4 ';
+		        		params[3] = req.params.status;
+		        	}
+		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
+		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
+		        		params[0] = req.params.lat;
+		        		params[1] = req.params.lon;
+		        		params[2] = req.params.radius || defaultDistance;
+		        	}
+	        		query = "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc,cars.location as loc,cars.last_contact as last_cont,cars.last_location_time as last_loc_t,cars.gps_data,cars.fleet_id" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE true " + queryString;
 		        }else{
 		        	// single car
 		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
