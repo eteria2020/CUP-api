@@ -139,7 +139,7 @@ module.exports = {
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
-    			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
+    			//var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
 		        if(typeof  req.params.plate === 'undefined'){
@@ -153,7 +153,7 @@ module.exports = {
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
-	        		query = "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc,cars.location as loc,cars.last_contact as last_cont,cars.last_location_time as last_loc_t,cars.gps_data,cars.fleet_id" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE true " + queryString;
+	        		query = "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc FROM cars " + fleetsJoin + " WHERE true " + queryString;
 		        }else{
 		        	// single car
 		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
