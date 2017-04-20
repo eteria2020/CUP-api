@@ -134,12 +134,12 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-		        var query = '',params = [],queryString = '',isSingle = false;
+		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '',isSingle = false;
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
-    			//var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
+    			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
 		        if(typeof  req.params.plate === 'undefined'){
@@ -147,33 +147,38 @@ module.exports = {
 		        		queryString += ' AND status = $4 ';
 		        		params[3] = req.params.status;
 		        	}
+					
+		        		queryString += freeCarCond;
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
-		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
+						querySelect += ',ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) ';
+						queryRecursive += 'with recursive tab(plate,long,lat,soc,dist) as (';
+						queryString += ' ) select plate,long,lat,soc,round(dist)as dist from tab where dist < $3::int order by dist asc';
 		        		params[0] = req.params.lat;
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
-	        		query = "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc FROM cars " + fleetsJoin + " WHERE true " + queryString;
+	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc" + querySelect + "  FROM cars WHERE true " + queryString;
 		        }else{
 		        	// single car
 		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
-		        if(!isSingle){
+		        /*if(!isSingle){
 		        	query += freeCarCond; 
-		        }
+		        }*/
 		        
 		        client.query(
 		        	query, 
 		        	params,
 		        	function(err, result) {
 			            done();
+			            var outTxt = '',outJson = null;
 			            if (err) {
 		    				console.log('Errore getCars select',err);
+							sendOutJSON(res,400,err,outJson);
 		  		        	next.ifError(err);
 		                }
-			            var outTxt = '',outJson = null;
 			            console.log('getCars select',err);
 			            if((typeof result !== 'undefined') && (result.rowCount>0)){
 			            	outJson = !isSingle?result.rows:result.rows[0];
