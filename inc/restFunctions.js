@@ -151,8 +151,8 @@ module.exports = {
 		        		queryString += freeCarCond;
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
 						querySelect += ',ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) ';
-						queryRecursive += 'with recursive tab(plate,long,lat,soc,dist) as (';
-						queryString += ' ) select plate,long,lat,soc,round(dist)as dist from tab where dist < $3::int order by dist asc';
+						queryRecursive += 'with recursive tab(plate,lon,lat,soc,dist) as (';
+						queryString += ' ) select plate,lon,lat,soc,round(dist)as dist from tab where dist < $3::int order by dist asc';
 		        		params[0] = req.params.lat;
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
