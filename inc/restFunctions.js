@@ -636,7 +636,7 @@ module.exports = {
 							                var cards = JSON.stringify([req.user.card_code]);
                                             console.error(cards);
 									        client.query(
-									        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1200,true,$3) RETURNING id",
+									        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1800,true,$3) RETURNING id",
 									        	[req.params.plate,req.user.id,cards],
 									        	function(err, result) {
 										            done();
