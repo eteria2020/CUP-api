@@ -161,16 +161,16 @@ module.exports = {
 
 			            if(result.rows[0].exists){
 			                if (cmd != '') {
-								client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1)",[plate],function(err,resultTripActive){
+								client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1) as trip, EXISTS(SELECT plate FROM cars WHERE plate=$1 AND status!='operative') as status, EXISTS(SELECT id FROM reservations WHERE car_plate=$1 AND active=TRUE AND customer_id!=$2) as reservation",[plate, req.user.id],function(err,resultTripActive){
 									done();
 									if (err) {		    				
 										console.log('Errore if exists trips ',err);
 										next.ifError(err);
 									}
 
-									if(resultTripActive.rows[0].exists && cmd == 'OPEN_TRIP'){
+									if(cmd == 'OPEN_TRIP' && (resultTripActive.rows[0].trip || resultTripActive.rows[0].status || resultTripActive.rows[0].reservation)){
 										console.log('Errore trip active exists',err);
-										sendOutJSON(res,400,'Cannot open trip on active car',null);
+										sendOutJSON(res,400,'Error: reservation:'+resultTripActive.rows[0].reservation+' - status:'+ resultTripActive.rows[0].status +' - trip:'+ resultTripActive.rows[0].trip ,null);
 						            	return next();
 									}else{
 										var sql = "INSERT INTO commands (car_plate, queued, to_send, command, txtarg1) values ($1, now(), true, $2 , $3 )";
