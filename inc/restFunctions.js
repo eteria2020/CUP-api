@@ -15,12 +15,41 @@ module.exports = {
 	 * @param  function next handler
 	 */
 	getUser: function(req, res, next) {
+		var bonus=0;
 		if(sanitizeInput(req,res)){
-			delete req.user.id;
-			delete req.user.password;
-            delete req.user.card_code;
-			req.user.pin = req.user.pin.primary;
-		    sendOutJSON(res,200,'',req.user);
+			
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getUser connect',err);
+  		        	next.ifError(err);
+                }
+
+               
+
+				client.query(
+		        	"SELECT SUM(residual)as bonus FROM customers_bonus WHERE customer_id=$1 AND (valid_to <now() OR valid_to IS NULL)", 
+		        	[req.user.id], 
+		        	function(err, result) {
+		        		done();
+			            if (err) {		    				
+		    				console.log('Errore getUser count',err);
+		  		        	next.ifError(err);
+		                }
+
+			            
+			                req.user.bonus=result.rows[0].bonus;
+							delete req.user.id;
+							delete req.user.password;
+							delete req.user.card_code;
+							req.user.pin = req.user.pin.primary;
+							sendOutJSON(res,200,'',req.user);
+			        }
+			    );
+             });
+			
+			
 		}
 	    return next();
 	},
@@ -55,7 +84,7 @@ module.exports = {
 		        		params[3] = req.params.status;
 		        	}
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
-		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
+		        		queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
 		        		params[0] = req.params.lat;
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
@@ -81,6 +110,75 @@ module.exports = {
 		  		        	next.ifError(err);
 		                }
 			            var outTxt = '',outJson = null;
+			            console.log('getCars select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No cars found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);
+		        	}
+		        );
+		    });
+		}
+	    return next();
+	},
+	
+	getCarsLight: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getCars connect',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '',isSingle = false;
+		        var queryParams = [null,null,null,null];
+		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
+    				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
+    			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
+    			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
+    			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
+
+		        if(typeof  req.params.plate === 'undefined'){
+			        if(typeof req.params.status !== 'undefined'){
+		        		queryString += ' AND status = $4 ';
+		        		params[3] = req.params.status;
+		        	}
+					
+		        		queryString += freeCarCond;
+		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
+						querySelect += ',ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) ';
+						queryRecursive += 'with recursive tab(plate,lon,lat,soc,dist) as (';
+						queryString += ' ) select plate,lon,lat,soc,round(dist)as dist from tab where dist < $3::int order by dist asc';
+		        		params[0] = req.params.lat;
+		        		params[1] = req.params.lon;
+		        		params[2] = req.params.radius || defaultDistance;
+		        	}
+	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc" + querySelect + "  FROM cars WHERE true " + queryString;
+		        }else{
+		        	// single car
+		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
+		        	params = [req.params.plate];
+		        	isSingle =true; 
+		        }
+		        /*if(!isSingle){
+		        	query += freeCarCond; 
+		        }*/
+		        
+		        client.query(
+		        	query, 
+		        	params,
+		        	function(err, result) {
+			            done();
+			            var outTxt = '',outJson = null;
+			            if (err) {
+		    				console.log('Errore getCars select',err);
+							sendOutJSON(res,400,err,outJson);
+		  		        	next.ifError(err);
+		                }
 			            console.log('getCars select',err);
 			            if((typeof result !== 'undefined') && (result.rowCount>0)){
 			            	outJson = !isSingle?result.rows:result.rows[0];
@@ -161,16 +259,16 @@ module.exports = {
 
 			            if(result.rows[0].exists){
 			                if (cmd != '') {
-								client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1)",[plate],function(err,resultTripActive){
+								client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1) as trip, EXISTS(SELECT plate FROM cars WHERE plate=$1 AND status!='operative') as status, EXISTS(SELECT id FROM reservations WHERE car_plate=$1 AND active=TRUE AND customer_id!=$2) as reservation",[plate, req.user.id],function(err,resultTripActive){
 									done();
 									if (err) {		    				
 										console.log('Errore if exists trips ',err);
 										next.ifError(err);
 									}
 
-									if(resultTripActive.rows[0].exists && cmd == 'OPEN_TRIP'){
+									if(cmd == 'OPEN_TRIP' && (resultTripActive.rows[0].trip || resultTripActive.rows[0].status || resultTripActive.rows[0].reservation)){
 										console.log('Errore trip active exists',err);
-										sendOutJSON(res,400,'Cannot open trip on active car',null);
+										sendOutJSON(res,400,'Error: reservation:'+resultTripActive.rows[0].reservation+' - status:'+ resultTripActive.rows[0].status +' - trip:'+ resultTripActive.rows[0].trip ,null);
 						            	return next();
 									}else{
 										var sql = "INSERT INTO commands (car_plate, queued, to_send, command, txtarg1) values ($1, now(), true, $2 , $3 )";
@@ -523,7 +621,7 @@ module.exports = {
 			                }
 				            if(result.rows[0].exists){
 			            		client.query(
-						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)as reservation, EXISTS(SELECT plate FROM cars WHERE plate=$2 AND status!='operative') as status, EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate=$2) as trip", 
+						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)as reservation, EXISTS(SELECT plate FROM cars WHERE plate=$2 AND status!='operative') as status, EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate=$2) as trip, EXISTS(SELECT car_plate FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit, EXISTS(SELECT car_plate FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit_archive", 
 						        	[req.user.id,req.params.plate], 
 						        	function(err, result) {
 							            done();
@@ -532,8 +630,8 @@ module.exports = {
 						  		        	next.ifError(err);
 						                }
 							            console.log('postReservations select ',err);
-							            if(result.rows[0].reservation || result.rows[0].status || result.rows[0].trip){
-				            				sendOutJSON(res,200,'Error: reservation:'+result.rows[0].reservation+' - status:'+ result.rows[0].status +' - trip:'+ result.rows[0].trip ,null);
+							            if(result.rows[0].reservation || result.rows[0].status || result.rows[0].trip || result.rows[0].limit || result.rows[0].limit_archive ){
+				            				sendOutJSON(res,200,'Error: reservation:'+result.rows[0].reservation+' - status:'+ result.rows[0].status +' - trip:'+ result.rows[0].trip +' - limit:'+ result.rows[0].limit +' - limit_archive:' + result.rows[0].limit_archive,null);
 							            }else{
 							                var cards = JSON.stringify([req.user.card_code]);
                                             console.error(cards);
