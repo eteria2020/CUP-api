@@ -620,38 +620,59 @@ module.exports = {
 			  		        	next.ifError(err);
 			                }
 				            if(result.rows[0].exists){
-			            		client.query(
-						        	"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)as reservation, EXISTS(SELECT plate FROM cars WHERE plate=$2 AND status!='operative') as status, EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate=$2) as trip, EXISTS(SELECT car_plate FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit, EXISTS(SELECT car_plate FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit_archive", 
+								client.query(
+						        	"SELECT EXISTS(SELECT id FROM trips WHERE car_plate = $2 AND customer_id = $1 AND timestamp_beginning >= (SELECT ts FROM (SELECT ts FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour) UNION SELECT ts FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) AS reservation ORDER BY ts DESC LIMIT 1) AND timestamp_beginning <= (SELECT (ts + interval '2100 second') as ts FROM (SELECT ts FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour) UNION SELECT ts FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) AS reservation ORDER BY ts DESC LIMIT 1) AND timestamp_end IS NOT NULL AND (timestamp_end - timestamp_beginning) > '00:02:00') as trips",
 						        	[req.user.id,req.params.plate], 
 						        	function(err, result) {
 							            done();
 							            if (err) {
-						    				console.log('Errore postReservations exists reservation ',err);
+						    				console.log('Errore postReservations exists trips ',err);
 						  		        	next.ifError(err);
 						                }
-							            console.log('postReservations select ',err);
-							            if(result.rows[0].reservation || result.rows[0].status || result.rows[0].trip || result.rows[0].limit || result.rows[0].limit_archive ){
-				            				sendOutJSON(res,200,'Error: reservation:'+result.rows[0].reservation+' - status:'+ result.rows[0].status +' - trip:'+ result.rows[0].trip +' - limit:'+ result.rows[0].limit +' - limit_archive:' + result.rows[0].limit_archive,null);
-							            }else{
-							                var cards = JSON.stringify([req.user.card_code]);
-                                            console.error(cards);
-									        client.query(
-									        	"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1800,true,$3) RETURNING id",
-									        	[req.params.plate,req.user.id,cards],
-									        	function(err, result) {
-										            done();
-				            			            if (err) {
-									    				console.log('Errore getPois insert ',err);
-									  		        	next.ifError(err);
-									                }
-										            console.log('postReservations insert ',err);
-										            sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
-										           
-									        	}
-									        );
-							            }							           
-						        	}
-						        );
+										if (result.rows[0].trips){
+											var limit = false;
+											var limit_archive = false;
+											var queryLimit = "";
+										} else {
+											var queryLimit = ", EXISTS(SELECT car_plate FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit, EXISTS(SELECT car_plate FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) as limit_archive";
+										}
+									client.query(
+										"SELECT EXISTS(SELECT car_plate FROM reservations WHERE (customer_id=$1 OR car_plate=$2) AND active IS TRUE)as reservation, EXISTS(SELECT plate FROM cars WHERE plate=$2 AND status!='operative') as status, EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate=$2) as trip" + queryLimit, 
+										[req.user.id,req.params.plate], 
+										function(err, result) {
+											done();
+											if (err) {
+												console.log('Errore postReservations exists reservation ',err);
+												next.ifError(err);
+											}
+											console.log('postReservations select ',err);
+											if (!result.rows[0].trips){
+												var limit = result.rows[0].limit;
+												var limit_archive = result.rows[0].limit_archive;
+											}
+											if(result.rows[0].reservation || result.rows[0].status || result.rows[0].trip || limit || limit_archive ){
+												sendOutJSON(res,200,'Error: reservation:'+result.rows[0].reservation+' - status:'+ result.rows[0].status +' - trip:'+ result.rows[0].trip +' - limit:'+ limit +' - limit_archive:' + limit_archive,null);
+											}else{
+												var cards = JSON.stringify([req.user.card_code]);
+												console.error(cards);
+												client.query(
+													"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1800,true,$3) RETURNING id",
+													[req.params.plate,req.user.id,cards],
+													function(err, result) {
+														done();
+														if (err) {
+															console.log('Errore getPois insert ',err);
+															next.ifError(err);
+														}
+														console.log('postReservations insert ',err);
+														sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
+													   
+													}
+												);
+											}							           
+										});
+									}
+								);
 				            }else{
 				            	console.log('Errore postReservations car NOT exists ',err);
 				            	sendOutJSON(res,400,'Invalid car plate',null);
