@@ -481,6 +481,100 @@ module.exports = {
 			            done();
 			            if (err) {
 		    				console.log('Errore getTrips select',err);
+			            sendOutJSON(res,400,err,outJson);
+		  		        	next.ifError(err);
+		                }
+			            console.log('getTrips select ',err);
+			            var outTxt = '',outJson = null;
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No trips found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);		           
+		        	}
+		        );
+		    });
+		}
+	    return next();
+	},
+	
+	getTripsNew: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getTrips ',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',queryJoin = '',queryFrom = '',params = [],nparam,queryTrip='', isSingle = false;
+
+		        queryJoin += ' LEFT JOIN trip_payments on trips.id = trip_payments.trip_id  ';
+		        if(req.path()=='/v2/trips/current'){
+		        	params[0] = req.user.id;
+		        	nparam = 1;
+		        	queryTrip += ' AND timestamp_end IS NULL LIMIT 1';
+		        	queryJoin += ' LEFT JOIN trip_payments on trips.id = trip_payments.trip_id  ';
+		        	//queryFrom += ',parking,park_enabled';
+		        	console.log('trips / current ',queryTrip);
+
+		        }else{
+					
+
+			        if(typeof  req.params.id === 'undefined'){
+			        	queryTrip = "";
+			        	params[0] = req.user.id;
+			        	nparam = 1;
+			        }else{
+			        	queryTrip = " AND id = $2";
+			        	params[0] = req.user.id;
+			        	params[1] = req.params.id;
+			        	nparam = 2;
+			        	isSingle = true;
+			        }
+
+					if(typeof  req.params.active !== 'undefined'){
+						if(req.params.active == 'true'){
+							queryTrip += ' AND timestamp_end IS NULL';
+						}else{
+							queryTrip += ' AND timestamp_end IS NOT NULL ';
+						}		        	
+			        }else{
+			        	queryTrip += ' AND timestamp_end IS NULL ';
+			        }			       
+
+			        if(typeof  req.params.from !== 'undefined'){
+			        	queryTrip += ' AND cast(extract(epoch from timestamp_beginning) as integer) >= $'+(nparam+1);
+			        	params[nparam] = req.params.from; 
+			        	nparam++;
+			        }
+
+			        if(typeof  req.params.to !== 'undefined'){
+			        	queryTrip += ' AND cast(extract(epoch from timestamp_beginning) as integer) <= $'+(nparam+1);
+			        	params[nparam] = req.params.to; 
+			        	nparam++;
+			        }
+
+					queryTrip += ' ORDER BY timestamp_beginning DESC';
+
+			        if(typeof  req.params.quantity !== 'undefined'){
+			        	queryTrip += ' LIMIT $'+(nparam+1);
+			        	params[nparam] = req.params.quantity; 
+			        	nparam++;
+			        }
+		        }
+
+
+		        client.query(
+		        	"SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
+		        	params, 
+		        	function(err, result) {
+			            done();
+			            if (err) {
+		    				console.log('Errore getTrips select',err);
+			            sendOutJSON(res,400,err+req.user.id,outJson);	
 		  		        	next.ifError(err);
 		                }
 			            console.log('getTrips select ',err);
