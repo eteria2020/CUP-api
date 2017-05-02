@@ -29,7 +29,7 @@ module.exports = {
                
 
 				client.query(
-		        	"SELECT SUM(residual)as bonus FROM customers_bonus WHERE customer_id=$1 AND (valid_to <now() OR valid_to IS NULL)", 
+		        	"SELECT SUM(residual)as bonus FROM customers_bonus WHERE customer_id=$1 AND (valid_to >now() OR valid_to IS NULL)", 
 		        	[req.user.id], 
 		        	function(err, result) {
 		        		done();
