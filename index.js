@@ -379,6 +379,23 @@ process.on('uncaughtException', function (err) {
 		passport.authenticate('basic', {session: false}),
 		funcs.putTrips
 	);
+	//v3
+	server.get(
+		'/v3/trips',
+		passport.authenticate('basic', {session: false}),
+		funcs.getTripsNew
+	);
+	server.get(
+		'/v3/trips/:id',
+		passport.authenticate('basic', {session: false}),
+		funcs.getTripsNew
+	);
+	server.get(
+		'/v3/trips/current',
+		passport.authenticate('basic', {session: false}),
+		funcs.getTripsNew
+	);
+	
 
 
 	server.pre(function (request, response, next) {
