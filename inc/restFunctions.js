@@ -192,7 +192,66 @@ module.exports = {
 		}
 	    return next();
 	},
-
+	
+	//getLastTrips function for safo
+	getLastTrips: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+	            if (err) {
+    				done();
+    				console.log('Errore getLastTrips connect',err);
+  		        	next.ifError(err);
+                }
+				var plate = "test";
+				var error = "no_error";
+				var timestamp = "";
+				try{
+					json_parsed = JSON.parse(req.body);
+					plate = json_parsed.vehicle_license_plate;
+					timestamp = json_parsed.violation_timestamp;
+				}catch(err){
+					error = "JSON is not valid";
+				}
+				
+				var test_date = new Date(timestamp);
+				if(isNaN(test_date.getDate())&&(error=="no_error")){
+					error = "Date is not valid!";
+				}
+				
+				if(error=="no_error"){
+					var query = "select true as \"is_vehicle_sharing\",manufactures as \"vehicle_manufacturer\",model as \"vehicle_model\",trips.fleet_id as \"vehicle_fleet_id\",trips.id as \"trip_id\",timestamp_beginning as \"trip_beginning_timestamp\",address_beginning as \"trip_beginning_address\",timestamp_end as \"trip_end_timestamp\",address_end as \"trip_end_address\",customer_id,customers.name as \"customer_name\",customers.surname as \"customer_surname\",customers.tax_code as \"customer_tax_code\",customers.maintainer as \"customer_is_operator\",customers.address as \"customer_address\",customers.zip_code as \"customer_zip_code\",customers.town as \"customer_town\",customers.province as \"customer_province\",customers.birth_country as \"customer_country\",customers.email as \"customer_email\",customers.driver_license as \"customer_driver_license_number\",customers.driver_license_categories as \"customer_driver_license_categories\",customers.driver_license_country as \"customer_driver_license_country\",customers.driver_license_release_date as \"customer_driver_license_release_date\",customers.driver_license_expire as \"customer_driver_license_expiration_date\",customers.driver_license_country as \"customer_driver_license_release_town\",customers.driver_license_authority as \"customer_driver_license_release_authority\" from trips,cars,customers where customers.id=trips.customer_id and car_plate=plate and trips.id in (select id from trips where car_plate='"+plate+"' AND timestamp_beginning <= '"+timestamp+"' LIMIT 2) ORDER BY timestamp_end DESC;";
+				        client.query(
+						query,
+						function(err, result) {
+							done();
+							var outTxt = 'OK',outJson = [{"is_vehicle_sharing":"false"},null];
+							if (err) {
+								console.log('getLastTrips select error',err);
+								sendOutJSON(res,400,err,outJson);
+								next.ifError(err);
+							}
+							console.log('getLastTrips select',err);
+							if((typeof result !== 'undefined') && (result.rowCount==1)){
+								outJson = [result.rows[0],null];
+							}else{
+								if(result.rowCount==2){
+									outJson = result.rows;
+								}else{
+									outTxt ='No trips found';
+								}
+							}
+							sendOutJSON(res,200,outTxt,outJson);
+						}
+					);
+				}else{
+					sendOutJSON(res,400,error,'');
+				}
+				
+		    });
+		}
+	    return next();
+	},
+	
     /* PUT */
 	/**
 	 * updates cars
@@ -309,10 +368,148 @@ module.exports = {
 		}
 	    return next();
 	},
-
-/* / PUT */
-
-
+	
+	/* PUT */
+	/**
+	 * put new penalty safo
+	 * @param  array   req  request
+	 * @param  array   res  response
+	 * @param  function next handler
+	 */
+	chargePenalty: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+	            if (err) {
+    				done();
+    				console.log('Errore chargePenalty connect',err);
+  		        	next.ifError(err);
+                }
+				
+				var d = new Date();
+				var insert_ts = d.getFullYear() + "/" + ("00" + (d.getMonth() + 1)).slice(-2) + "/" + ("00" + d.getDate()).slice(-2) + " " + ("00" + d.getHours()).slice(-2) + ":" + ("00" + d.getMinutes()).slice(-2) + ":" + ("00" + d.getSeconds()).slice(-2);
+				var charged = false;
+				
+				var customer_id = 0;
+				var vehicle_fleet_id = 1;
+				var violation_category = 0;
+				var trip_id = 0;
+				var vehicle_license_plate = "no_plate";
+				var violation_timestamp = "1970-01-01 00:00:00";
+				var violation_authority = "no_v_authority";
+				var violation_number = "no_v_number";
+				var violation_description = "no_v_description";
+				var rus_id = -1;
+				var violation_request_type = -1;
+				var violation_status = "N";
+				
+				var error = "no_error";
+				try{
+					json_parsed = JSON.parse(req.body);
+					customer_id = json_parsed.customer_id;
+					if(isNaN(customer_id)){
+						error = "customer_id is not valid.";
+					}else{
+						if(customer_id.length<=0){
+							error = "customer_id is not valid.";
+						}
+					}
+					vehicle_fleet_id = json_parsed.vehicle_fleet_id;
+					if(isNaN(vehicle_fleet_id)){
+						error = "vehicle_fleet_id is not valid.";
+					}else{
+						if(vehicle_fleet_id.length<=0){
+							error = "vehicle_fleet_id is not valid.";
+						}
+					}
+					violation_category = json_parsed.violation_category;
+					if(isNaN(violation_category)){
+						error = "violation_category is not valid.";
+					}else{
+						if(violation_category.length<=0){
+							error = "violation_category is not valid.";
+						}
+					}
+					trip_id = json_parsed.trip_id;
+					if(isNaN(trip_id)){
+						error = "trip_id is not valid.";
+					}else{
+						if(trip_id.length<=0){
+							error = "trip_id is not valid.";
+						}
+					}
+					vehicle_license_plate = json_parsed.vehicle_license_plate;
+					if(vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length<1){
+						error = "vehicle_license_plate is not valid.";
+					}
+					violation_timestamp = json_parsed.violation_timestamp;
+					var test_date = new Date(violation_timestamp);
+					if(isNaN(test_date.getDate())){
+						error = "Date is not valid!";
+					}
+					violation_authority = json_parsed.violation_authority;
+					if(violation_authority === null || violation_authority === "null" || violation_authority.length<1){
+						error = "violation_authority is not valid.";
+					}
+					violation_number = json_parsed.violation_number;
+					if(violation_number === null || violation_number === "null" || violation_number.length<1){
+						error = "violation_number is not valid.";
+					}
+					violation_description = json_parsed.violation_description;
+					if(violation_description === null || violation_description === "null"){
+						error = "violation_description is not valid.";
+					}
+					rus_id = json_parsed.rus_id;
+					if(isNaN(rus_id)){
+						error = "rus_id is not valid.";
+					}
+					violation_request_type = json_parsed.violation_request_type;
+					if(isNaN(violation_request_type)){
+						error = "violation_request_type is not valid.";
+					}
+					violation_status = json_parsed.violation_status;
+					if(violation_status === null || violation_status === "null" || violation_status.length<1 || violation_status.length>1){
+						error = "violation_status is not valid.";
+					}
+					
+				}catch(err){
+					error = "JSON is not valid";
+				}
+				var outJson = {"penalty_loading_result":"false"};
+				if(error=="no_error"){
+					var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '"+insert_ts+"', "+charged+", NULL, "+customer_id+", "+vehicle_fleet_id+", "+violation_category+", "+trip_id+", '"+vehicle_license_plate+"', '"+violation_timestamp+"', '"+violation_authority+"', '"+violation_number+"', '"+violation_description+"', "+rus_id+", "+violation_request_type+", '"+violation_status+"');";
+				    client.query(
+						query,
+						function(err, result) {
+							done();
+							var outTxt = query;
+							if (err) {
+								console.log('chargePenalty insert error',err);
+								sendOutJSON(res,400,"KO",outJson);
+								next.ifError(err);
+							}else{
+								if((typeof result !== 'undefined')){
+									outJson = {"penalty_loading_result":"true"};
+								}else{
+									outJson = {"penalty_loading_result":"false"};
+								}
+								sendOutJSON(res,200,"OK",outJson);
+							}
+						}
+					);
+					
+					//outJson=[insert_ts,charged,customer_id,vehicle_fleet_id,violation_category,trip_id,vehicle_license_plate,violation_timestamp,violation_authority,violation_number,violation_description,rus_id,violation_request_type,violation_status];
+					//sendOutJSON(res,200,'OK',outJson);
+				}else{
+					sendOutJSON(res,400,error,{"penalty_loading_result":"false"});
+				}
+				
+		    });
+		}
+	    return next();
+	},
+	
+	
+	/* PUT */
 	/**
 	 * get reservation details
 	 * @param  array   req  request
