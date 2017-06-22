@@ -193,6 +193,54 @@ module.exports = {
 	    return next();
 	},
 
+	getCarsBonus: function(req, res, next) {
+		if(sanitizeInput(req,res)){
+			pg.connect(conString, function(err, client, done) {
+
+	            if (err) {
+    				done();
+    				console.log('Errore getCars connect',err);
+  		        	next.ifError(err);
+                }
+
+		        var query = '',params = [],queryString = '', querySelect = '',isSingle = false;
+		        var queryParams = [null,null,null,null];
+
+
+		        if(typeof  req.params.plate === 'undefined'){
+	        		query = "SELECT plate, json_build_object('type','nouse','description','') as bonus FROM cars WHERE plate NOT IN (SELECT car_plate FROM trips WHERE timestamp_end >= (now()- interval '48' hour) and timestamp_end<=now() AND customer_id NOT IN (select id from customers where maintainer=true group by id)) AND status='operative' AND hidden='f' AND busy = 'f'";
+		        }else{
+		        	// nouse
+		        	query = "SELECT plate, json_build_object('type','nouse','description','') as bonus FROM cars WHERE plate NOT IN (SELECT car_plate FROM trips WHERE timestamp_end >= (now()- interval '48' hour) and timestamp_end<=now() AND customer_id NOT IN (select id from customers where maintainer=true group by id)) AND status='operative' AND hidden='f' AND busy = 'f'";
+		        	params = [req.params.plate];
+		        	isSingle =true; 
+		        }
+		        
+		        client.query(
+		        	query, 
+		        	params,
+		        	function(err, result) {
+			            done();
+			            var outTxt = '',outJson = null;
+			            if (err) {
+		    				console.log('Errore getCarsBonus select',err);
+							sendOutJSON(res,400,err,outJson);
+		  		        	next.ifError(err);
+		                }
+			            console.log('getCarsBonus select',err);
+			            if((typeof result !== 'undefined') && (result.rowCount>0)){
+			            	outJson = !isSingle?result.rows:result.rows[0];
+			            }else{
+			            	outTxt ='No cars bonus found';
+			            }
+			            sendOutJSON(res,200,outTxt,outJson);
+		        	}
+		        );
+		    });
+		}
+	    return next();
+	},
+	
     /* PUT */
 	/**
 	 * updates cars
