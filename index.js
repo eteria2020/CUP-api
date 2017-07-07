@@ -410,12 +410,12 @@ process.on('uncaughtException', function (err) {
 	);
 	
 	//safo
-	server.get(
+	server.post(
 		'/v2/getLastTrips',
 		//passport.authenticate('basic', {session: false}),
 		funcs.getLastTrips
 	);
-	server.get(
+	server.put(
 		'/v2/chargePenalty',
 		//passport.authenticate('basic', {session: false}),
 		funcs.chargePenalty

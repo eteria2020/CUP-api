@@ -219,28 +219,62 @@ module.exports = {
 				}
 				
 				if(error=="no_error"){
-					var query = "select true as \"is_vehicle_sharing\",manufactures as \"vehicle_manufacturer\",model as \"vehicle_model\",trips.fleet_id as \"vehicle_fleet_id\",trips.id as \"trip_id\",timestamp_beginning::text as \"trip_beginning_timestamp\",address_beginning as \"trip_beginning_address\",timestamp_end::text as \"trip_end_timestamp\",address_end as \"trip_end_address\",customer_id,customers.name as \"customer_name\",customers.surname as \"customer_surname\",customers.tax_code as \"customer_tax_code\",customers.maintainer as \"customer_is_operator\",customers.address as \"customer_address\",customers.zip_code as \"customer_zip_code\",customers.town as \"customer_town\",customers.province as \"customer_province\",customers.birth_country as \"customer_country\",customers.email as \"customer_email\",customers.driver_license as \"customer_driver_license_number\",customers.driver_license_categories as \"customer_driver_license_categories\",customers.driver_license_country as \"customer_driver_license_country\",customers.driver_license_release_date::text as \"customer_driver_license_release_date\",customers.driver_license_expire::text as \"customer_driver_license_expiration_date\",customers.driver_license_country as \"customer_driver_license_release_town\",customers.driver_license_authority as \"customer_driver_license_release_authority\" from trips,cars,customers where customers.id=trips.customer_id and car_plate=plate and trips.id in (select id from trips where car_plate='"+plate+"' AND timestamp_beginning <= '"+timestamp+"' LIMIT 2) ORDER BY timestamp_end DESC;";
-				        client.query(
-						query,
+					var query_exist = "select exists(select 1 from cars where plate='"+plate+"');";
+					client.query(
+						query_exist,
 						function(err, result) {
 							done();
-							var outTxt = 'OK',outJson = [{"is_vehicle_sharing":"false"},null];
-							if (err) {
-								console.log('getLastTrips select error',err);
-								sendOutJSON(res,400,err,outJson);
-								next.ifError(err);
-							}
-							console.log('getLastTrips select',err);
-							if((typeof result !== 'undefined') && (result.rowCount==1)){
-								outJson = [result.rows[0],null];
+							console.log('getLastTrips select exist',err);
+							//console.log(result);
+							var is_vehicle_sharing=false;
+							if((typeof result !== 'undefined') && (result.rows[0].exists==true)){
+								is_vehicle_sharing=true;
 							}else{
-								if(result.rowCount==2){
-									outJson = result.rows;
-								}else{
-									outTxt ='No trips found';
-								}
+								outTxt ='No car found.';
 							}
-							sendOutJSON(res,200,outTxt,outJson);
+							var query_running = "select true as \"is_vehicle_sharing\",manufactures as \"vehicle_manufacturer\",model as \"vehicle_model\",trips.fleet_id as \"vehicle_fleet_id\",trips.id as \"trip_id\",timestamp_beginning::text as \"trip_beginning_timestamp\",address_beginning as \"trip_beginning_address\",timestamp_end::text as \"trip_end_timestamp\",address_end as \"trip_end_address\",customer_id,customers.name as \"customer_name\",customers.surname as \"customer_surname\",customers.tax_code as \"customer_tax_code\",customers.maintainer as \"customer_is_operator\",customers.address as \"customer_address\",customers.zip_code as \"customer_zip_code\",customers.town as \"customer_town\",customers.province as \"customer_province\",customers.birth_country as \"customer_country\",customers.email as \"customer_email\",customers.driver_license as \"customer_driver_license_number\",customers.driver_license_categories as \"customer_driver_license_categories\",customers.driver_license_country as \"customer_driver_license_country\",customers.driver_license_release_date::text as \"customer_driver_license_release_date\",customers.driver_license_expire::text as \"customer_driver_license_expiration_date\",customers.driver_license_country as \"customer_driver_license_release_town\",customers.driver_license_authority as \"customer_driver_license_release_authority\" from trips,cars,customers where customers.id=trips.customer_id and car_plate=plate AND car_plate='"+plate+"' AND timestamp_beginning <= '"+timestamp+"' AND timestamp_end >= '"+timestamp+"' limit 1;";
+							client.query(
+								query_running,
+								function(err, result_running) {
+									if (err) {
+										eval("var outJson={\"is_vehicle_sharing\":"+is_vehicle_sharing+"};");
+										console.log('getLastTrips select error open trip',err);
+										sendOutJSON(res,400,err,outJson);
+										next.ifError(err);
+									}
+									if((typeof result_running !== 'undefined') && (result_running.rowCount==1)){
+										var res_run = result_running.rows[0];//inserisci il primo dato nel return
+									}else{
+										eval("var res_run={\"is_vehicle_sharing\":"+is_vehicle_sharing+"};");
+									}
+									var trip_id = 0;
+									if(typeof res_run['trip_id'] !== 'undefined'){
+										trip_id = res_run['trip_id'];
+									}
+									var query = "select true as \"is_vehicle_sharing\",manufactures as \"vehicle_manufacturer\",model as \"vehicle_model\",trips.fleet_id as \"vehicle_fleet_id\",trips.id as \"trip_id\",timestamp_beginning::text as \"trip_beginning_timestamp\",address_beginning as \"trip_beginning_address\",timestamp_end::text as \"trip_end_timestamp\",address_end as \"trip_end_address\",customer_id,customers.name as \"customer_name\",customers.surname as \"customer_surname\",customers.tax_code as \"customer_tax_code\",customers.maintainer as \"customer_is_operator\",customers.address as \"customer_address\",customers.zip_code as \"customer_zip_code\",customers.town as \"customer_town\",customers.province as \"customer_province\",customers.birth_country as \"customer_country\",customers.email as \"customer_email\",customers.driver_license as \"customer_driver_license_number\",customers.driver_license_categories as \"customer_driver_license_categories\",customers.driver_license_country as \"customer_driver_license_country\",customers.driver_license_release_date::text as \"customer_driver_license_release_date\",customers.driver_license_expire::text as \"customer_driver_license_expiration_date\",customers.driver_license_country as \"customer_driver_license_release_town\",customers.driver_license_authority as \"customer_driver_license_release_authority\" from trips,cars,customers where customers.id=trips.customer_id and car_plate=plate and trips.id in (select id from trips where car_plate='"+plate+"' AND timestamp_beginning <= '"+timestamp+"' AND id<>"+trip_id+" LIMIT 1) ORDER BY timestamp_end DESC;";
+									client.query(
+										query,
+										function(err, result) {
+											done();
+											var outTxt = 'OK';
+											if (err) {
+												console.log('getLastTrips select error last trip',err);
+												sendOutJSON(res,400,err,outJson);
+												next.ifError(err);
+											}
+											if((typeof result !== 'undefined') && (result.rowCount==1)){
+												outJson = [res_run,result.rows[0]];
+											}else{
+												outJson = [res_run,null];
+											}
+											if(!((typeof result_running !== 'undefined')&&(typeof result !== 'undefined'))){
+												outTxt ='No trips found';
+											}
+											sendOutJSON(res,200,outTxt,outJson);
+										}
+									);
+								}
+							);
 						}
 					);
 				}else{
@@ -401,6 +435,9 @@ module.exports = {
 				var rus_id = -1;
 				var violation_request_type = -1;
 				var violation_status = "N";
+				var email_sent_timestamp = "NULL";
+				var email_sent_ok = "NULL";
+				var penalty_ok = "NULL";
 				
 				var error = "no_error";
 				try{
@@ -444,7 +481,7 @@ module.exports = {
 					violation_timestamp = json_parsed.violation_timestamp;
 					var test_date = new Date(violation_timestamp);
 					if(isNaN(test_date.getDate())){
-						error = "Date is not valid!";
+						error = "violation_timestamp is not valid!";
 					}
 					violation_authority = json_parsed.violation_authority;
 					if(violation_authority === null || violation_authority === "null" || violation_authority.length<1){
@@ -471,12 +508,35 @@ module.exports = {
 						error = "violation_status is not valid.";
 					}
 					
+					if(!isNaN(json_parsed.email_sent_timestamp)){
+						if(json_parsed.email_sent_timestamp!=""){
+							var test_date = new Date(json_parsed.email_sent_timestamp);
+							if(isNaN(test_date.getDate())){
+								email_sent_timestamp = "NULL";
+							}else{
+								email_sent_timestamp = '"'+json_parsed.email_sent_timestamp+'"';
+							}
+						}
+					}
+					
+					if((typeof json_parsed.email_sent_ok !== 'undefined')){
+						email_sent_ok=json_parsed.email_sent_ok;
+					}else{
+						email_sent_ok="NULL";
+					}
+					
+					if((typeof json_parsed.penalty_ok !== 'undefined')){
+						penalty_ok=json_parsed.penalty_ok;
+					}else{
+						penalty_ok="NULL";
+					}
+					
 				}catch(err){
 					error = "JSON is not valid";
 				}
 				var outJson = {"penalty_loading_result":"false"};
 				if(error=="no_error"){
-					var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '"+insert_ts+"', "+charged+", NULL, "+customer_id+", "+vehicle_fleet_id+", "+violation_category+", "+trip_id+", '"+vehicle_license_plate+"', '"+violation_timestamp+"', '"+violation_authority+"', '"+violation_number+"', '"+violation_description+"', "+rus_id+", "+violation_request_type+", '"+violation_status+"');";
+					var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '"+insert_ts+"', "+charged+", NULL, "+customer_id+", "+vehicle_fleet_id+", "+violation_category+", "+trip_id+", '"+vehicle_license_plate+"', '"+violation_timestamp+"', '"+violation_authority+"', '"+violation_number+"', '"+violation_description+"', "+rus_id+", "+violation_request_type+", '"+violation_status+"', "+email_sent_timestamp+", "+email_sent_ok+", "+penalty_ok+");";
 				    client.query(
 						query,
 						function(err, result) {
@@ -765,7 +825,7 @@ module.exports = {
 
 
 		        client.query(
-		        	"SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
+		        	"SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
 		        	params, 
 		        	function(err, result) {
 			            done();
