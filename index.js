@@ -396,8 +396,7 @@ process.on('uncaughtException', function (err) {
 		funcs.getTripsNew
 	);
 	
-
-
+	
 	server.pre(function (request, response, next) {
 	    request.log.info({ req: request,params:request.params }, 'REQUEST');
 	    next();
@@ -408,6 +407,18 @@ process.on('uncaughtException', function (err) {
 		'/v2/pois',
 		//passport.authenticate('basic', {session: false}),
 		funcs.getPois
+	);
+	
+	//safo
+	server.post(
+		'/v2/getLastTrips',
+		//passport.authenticate('basic', {session: false}),
+		funcs.getLastTrips
+	);
+	server.put(
+		'/v2/chargePenalty',
+		//passport.authenticate('basic', {session: false}),
+		funcs.chargePenalty
 	);
 
 /* / routes */
