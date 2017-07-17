@@ -142,7 +142,7 @@ module.exports = {
     			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 				var nouse = 48; //seconds
-				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when round(extract('epoch' from (now() - nouse::timestamp)) / 60) >= " + nouse + " then TRUE else FALSE end as nouse_bool FROM cars_bonus) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " then TRUE else FALSE end as nouse_bool FROM cars_bonus) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
 
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
@@ -166,7 +166,7 @@ module.exports = {
 		        }else{
 		        	// single car
 					bonusCond += ", json_build_array(json_build_object('type','nouse', 'value',15 ,'status', cars_bonus.nouse_bool)) as bonus ";
-		        	query = "SELECT cars.*" + fleetsSelect + bonusCond +" FROM cars " + fleetsJoin + bonusSelect + " WHERE plate = $1"; // modifica con bonus auto
+		        	query = "SELECT cars.*" + fleetsSelect + bonusCond +" FROM cars " + fleetsJoin + bonusSelect + " WHERE plate = $1";
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
