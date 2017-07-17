@@ -826,7 +826,7 @@ module.exports = {
 			        	params[0] = req.user.id;
 			        	nparam = 1;
 			        }else{
-			        	queryTrip = " AND id = $2";
+			        	queryTrip = " AND trips.id = $2";
 			        	params[0] = req.user.id;
 			        	params[1] = req.params.id;
 			        	nparam = 2;
@@ -840,7 +840,9 @@ module.exports = {
 							queryTrip += ' AND timestamp_end IS NOT NULL ';
 						}		        	
 			        }else{
-			        	queryTrip += ' AND timestamp_end IS NULL ';
+						if(typeof  req.params.id === 'undefined'){
+							queryTrip += ' AND timestamp_end IS NULL ';
+						}
 			        }			       
 
 			        if(typeof  req.params.from !== 'undefined'){
@@ -864,9 +866,9 @@ module.exports = {
 			        }
 		        }
 
-
+				//query="SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable, trips.is_accounted FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip;
 		        client.query(
-		        	"SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
+		        	"SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable, trips.cost_computed FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip, 
 		        	params, 
 		        	function(err, result) {
 			            done();
@@ -1048,7 +1050,7 @@ module.exports = {
 												var cards = JSON.stringify([req.user.card_code]);
 												console.error(cards);
 												client.query(
-													"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1800,true,$3) RETURNING id",
+													"INSERT INTO reservations (ts,car_plate,customer_id,beginning_ts,active,length,to_send,cards) VALUES (NOW(),$1,$2,NOW(),true,1200,true,$3) RETURNING id",
 													[req.params.plate,req.user.id,cards],
 													function(err, result) {
 														done();
