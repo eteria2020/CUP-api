@@ -1,0 +1,6 @@
+// db
+exports.conString = "postgres://user:pwd@127.0.0.1/dbname";
+exports.port = process.env.PORT || 8023;
+exports.unsecurePort = process.env.UPORT || 8021;
+exports.logPath = "/var/log/services/";
+
