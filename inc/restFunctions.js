@@ -134,13 +134,15 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '',isSingle = false;
+		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '',isSingle = false,bonusCond = '';
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
     			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
+				var nouse = 48; //seconds
+				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when round(extract('epoch' from (now() - nouse::timestamp)) / 60) >= " + nouse + " then TRUE else FALSE end as nouse_bool FROM cars_bonus) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
 
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
@@ -150,17 +152,21 @@ module.exports = {
 					
 		        		queryString += freeCarCond;
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
-						querySelect += ',ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) ';
-						queryRecursive += 'with recursive tab(plate,lon,lat,soc,dist) as (';
-						queryString += ' ) select plate,lon,lat,soc,round(dist)as dist from tab where dist < $3::int order by dist asc';
+						querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value',15, 'status', cars_bonus.nouse_bool)) as bonus";
+						queryRecursive += 'with recursive tab(plate,lon,lat,soc,dist,bonus) as (';
+						queryString += ' ) select plate,lon,lat,soc,round(dist)as dist,bonus from tab where dist < $3::int order by dist asc';
 		        		params[0] = req.params.lat;
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
-	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc" + querySelect + "  FROM cars WHERE true " + queryString;
+					else {
+						bonusCond += ", json_build_array(json_build_object('type','nouse', 'value',15 ,'status', cars_bonus.nouse_bool)) as bonus ";
+					}
+	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc" + bonusCond + " " + querySelect + "  FROM cars " + bonusSelect + " WHERE true " + queryString;
 		        }else{
 		        	// single car
-		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
+					bonusCond += ", json_build_array(json_build_object('type','nouse', 'value',15 ,'status', cars_bonus.nouse_bool)) as bonus ";
+		        	query = "SELECT cars.*" + fleetsSelect + bonusCond +" FROM cars " + fleetsJoin + bonusSelect + " WHERE plate = $1"; // modifica con bonus auto
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
@@ -193,53 +199,6 @@ module.exports = {
 	    return next();
 	},
 
-	getCarsBonus: function(req, res, next) {
-		if(sanitizeInput(req,res)){
-			pg.connect(conString, function(err, client, done) {
-
-	            if (err) {
-    				done();
-    				console.log('Errore getCars connect',err);
-  		        	next.ifError(err);
-                }
-
-		        var query = '',params = [],queryString = '', querySelect = '',isSingle = false;
-		        var queryParams = [null,null,null,null];
-
-
-		        if(typeof  req.params.plate === 'undefined'){
-	        		query = "SELECT plate, json_build_object('type','nouse','description','') as bonus FROM cars WHERE plate NOT IN (SELECT car_plate FROM trips WHERE timestamp_end >= (now()- interval '48' hour) and timestamp_end<=now() AND customer_id NOT IN (select id from customers where maintainer=true group by id)) AND status='operative' AND hidden='f' AND busy = 'f'";
-		        }else{
-		        	// nouse
-		        	query = "SELECT plate, json_build_object('type','nouse','description','') as bonus FROM cars WHERE plate NOT IN (SELECT car_plate FROM trips WHERE timestamp_end >= (now()- interval '48' hour) and timestamp_end<=now() AND customer_id NOT IN (select id from customers where maintainer=true group by id)) AND status='operative' AND hidden='f' AND busy = 'f'";
-		        	params = [req.params.plate];
-		        	isSingle =true; 
-		        }
-		        
-		        client.query(
-		        	query, 
-		        	params,
-		        	function(err, result) {
-			            done();
-			            var outTxt = '',outJson = null;
-			            if (err) {
-		    				console.log('Errore getCarsBonus select',err);
-							sendOutJSON(res,400,err,outJson);
-		  		        	next.ifError(err);
-		                }
-			            console.log('getCarsBonus select',err);
-			            if((typeof result !== 'undefined') && (result.rowCount>0)){
-			            	outJson = !isSingle?result.rows:result.rows[0];
-			            }else{
-			            	outTxt ='No cars bonus found';
-			            }
-			            sendOutJSON(res,200,outTxt,outJson);
-		        	}
-		        );
-		    });
-		}
-	    return next();
-	},
 	
     /* PUT */
 	/**
