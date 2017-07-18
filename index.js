@@ -313,6 +313,7 @@ process.on('uncaughtException', function (err) {
 		//passport.authenticate('basic', {session: false}),
 		funcs.getCarsLight
 	);
+
 	server.get(
 		'/v3/cars/:plate',
 		//passport.authenticate('basic', {session: false}),
