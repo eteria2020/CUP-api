@@ -359,6 +359,14 @@ module.exports = {
 
              var plate =  req.params.plate;
              var action = req.params.action;
+			 
+			 var user_lat='';
+			 var user_lon='';
+			 
+			 if(typeof  req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined'){
+				 user_lat = req.params.user_lat;
+				 user_lon = req.params.user_lon;
+			 }
 
 	         pg.connect(conString, function(err, client, done) {
 
@@ -424,6 +432,21 @@ module.exports = {
 													console.log('Errore putCars insert',err);
 										        	next.ifError(err);
 											    }
+												
+												if(user_lat !='' && user_lon!=''){
+													var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
+													var paramsLoc = [req.user.id, user_lat , user_lon, action.toLowerCase()+" trip", plate];
+													client.query(sqlLoc,
+														paramsLoc,
+														function(err, result) {
+															done();
+															if (err) {		    				
+																console.log('Errore putCars insert location',err);
+																next.ifError(err);
+															}
+														}
+													);
+												}
 
 											    outTxt="OK";
 											    sendOutJSON(res,200,outTxt,outJson);
@@ -1012,6 +1035,14 @@ module.exports = {
                 }
 
 		        if(typeof  req.params.plate !== 'undefined' && req.params.plate !=''){
+					
+					var user_lat='';
+					var user_lon='';
+					
+					if(typeof  req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined'){
+						 user_lat = req.params.user_lat;
+						 user_lon = req.params.user_lon;
+					}
 
 		        	client.query(
 			        	"SELECT EXISTS(SELECT plate FROM cars WHERE plate=$1)", 
@@ -1067,6 +1098,22 @@ module.exports = {
 															console.log('Errore getPois insert ',err);
 															next.ifError(err);
 														}
+														
+														if(user_lat !='' && user_lon!=''){
+															var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
+															var paramsLoc = [req.user.id, user_lat , user_lon, "create reservation", req.params.plate];
+															client.query(sqlLoc,
+																paramsLoc,
+																function(err, result) {
+																	done();
+																	if (err) {		    				
+																		console.log('Errore postReservations insert location',err);
+																		next.ifError(err);
+																	}
+																}
+															);
+														}
+														
 														console.log('postReservations insert ',err);
 														sendOutJSON(res,200,'Reservation created successfully',{'reservation_id':result.rows[0].id});
 													   
@@ -1114,8 +1161,15 @@ module.exports = {
 
 
 		        if(typeof  req.params.id !== 'undefined'){
+					var user_lat='';
+					var user_lon='';
+					
+					if(typeof  req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined'){
+						 user_lat = req.params.user_lat;
+						 user_lon = req.params.user_lon;
+					}
 			        client.query(
-			        	"UPDATE reservations SET active = FALSE, to_send = TRUE, deleted_ts = NOW()  WHERE id = $1 AND customer_id = $2", 
+			        	"UPDATE reservations SET active = FALSE, to_send = TRUE, deleted_ts = NOW()  WHERE id = $1 AND customer_id = $2 RETURNING car_plate", 
 			        	[req.params.id,req.user.id], 
 			        	function(err, result) {
 				            done();
@@ -1123,6 +1177,25 @@ module.exports = {
 			    				console.log('Errore delReservations delete',err);
 			  		        	next.ifError(err);
 			                }
+							if(user_lat !='' && user_lon!=''){
+								var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5)";
+								var plate='';
+								if(typeof result.rows[0].car_plate!== 'undefined' && result.rows[0].car_plate!=''){
+									plate = result.rows[0].car_plate;
+								}
+								var paramsLoc = [req.user.id, user_lat , user_lon, "delete reservation ", plate];
+								client.query(sqlLoc,
+									paramsLoc,
+									function(err, result) {
+										done();
+										if (err) {		    				
+											console.log('Errore delReservations insert location',err);
+											next.ifError(err);
+										}
+									}
+								);
+							}
+														
 				            console.log('delReservations delete ',err);
 				            sendOutJSON(res,200,'Reservation '+ req.params.id +' deleted successfully',null);
 			        	}
