@@ -26,7 +26,13 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-               
+				var user_lat='';
+				var user_lon='';
+				
+				if(typeof  req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined'){
+					 user_lat = req.params.user_lat;
+					 user_lon = req.params.user_lon;
+				}
 
 				client.query(
 		        	"SELECT SUM(residual)as bonus FROM customers_bonus WHERE customer_id=$1 AND (valid_to >now() OR valid_to IS NULL)", 
@@ -38,13 +44,27 @@ module.exports = {
 		  		        	next.ifError(err);
 		                }
 
-			            
-			                req.user.bonus=result.rows[0].bonus;
-							delete req.user.id;
-							delete req.user.password;
-							delete req.user.card_code;
-							req.user.pin = req.user.pin.primary;
-							sendOutJSON(res,200,'',req.user);
+			            if(user_lat !='' && user_lon!=''){
+							var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
+							var paramsLoc = [req.user.id, user_lat , user_lon, "login", null];
+							client.query(sqlLoc,
+								paramsLoc,
+								function(err, result) {
+									done();
+									if (err) {		    				
+										console.log('Errore postReservations insert location',err);
+										next.ifError(err);
+									}
+								}
+							);
+						}
+						
+						req.user.bonus=result.rows[0].bonus;
+						delete req.user.id;
+						delete req.user.password;
+						delete req.user.card_code;
+						req.user.pin = req.user.pin.primary;
+						sendOutJSON(res,200,'',req.user);
 			        }
 			    );
              });
@@ -439,7 +459,7 @@ module.exports = {
 											    }
 												
 												if(user_lat !='' && user_lon!=''){
-													var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
+													var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
 													var paramsLoc = [req.user.id, user_lat , user_lon, action.toLowerCase()+" trip", plate];
 													client.query(sqlLoc,
 														paramsLoc,
@@ -1105,7 +1125,7 @@ module.exports = {
 														}
 														
 														if(user_lat !='' && user_lon!=''){
-															var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
+															var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
 															var paramsLoc = [req.user.id, user_lat , user_lon, "create reservation", req.params.plate];
 															client.query(sqlLoc,
 																paramsLoc,
@@ -1183,7 +1203,7 @@ module.exports = {
 			  		        	next.ifError(err);
 			                }
 							if(user_lat !='' && user_lon!=''){
-								var sqlLoc = "INSERT INTO customer_location (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5)";
+								var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5)";
 								var plate='';
 								if(typeof result.rows[0].car_plate!== 'undefined' && result.rows[0].car_plate!=''){
 									plate = result.rows[0].car_plate;
