@@ -70,14 +70,19 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-		        var query = '',params = [],queryString = '',isSingle = false;
+		        var query = '',params = [],queryString = '',isSingle = false,bonusCond = '';
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
     			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
-
+				//nouse - free15
+				var nouse = 1440; //minutes
+				var soc_nouse = "> 35";
+				var value_nouse = 15;
+				var bonusJoin = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then TRUE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+    			var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value'," + value_nouse + " ,'status', cars_bonus.nouse_bool)) as bonus ";
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
 		        		queryString += ' AND status = $4 ';
@@ -89,10 +94,10 @@ module.exports = {
 		        		params[1] = req.params.lon;
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
-	        		query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE true " + queryString;
+	        		query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE true " + queryString;
 		        }else{
 		        	// single car
-		        	query = "SELECT cars.*" + fleetsSelect + " FROM cars " + fleetsJoin + " WHERE plate = $1";
+		        	query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
