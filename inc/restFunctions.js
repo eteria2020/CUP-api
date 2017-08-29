@@ -90,19 +90,29 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-		        var query = '',params = [],queryString = '',isSingle = false,bonusCond = '';
+		        var query = '',params = [],queryString = '',isSingle = false;
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
     			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
-				//nouse - free15
-				var nouse = 1440; //minutes
-				var soc_nouse = "> 35";
-				var value_nouse = 15;
-				var bonusJoin = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then TRUE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
-    			var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value'," + value_nouse + " ,'status', cars_bonus.nouse_bool)) as bonus ";
+				var soc_nouse = "> 30";
+				//free15
+				var free15 = 15;
+				var value_free15 = 1440; //minutes - 24h
+				//free10
+				var free10 = 10;
+				var value_free10 = 720; //minutes - 12h
+				//free5
+				var free5 = 5;
+				var value_free5 = 360; //minutes - 6h
+				//case 
+				var casefree15 = "when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free15 + " AND cars.battery " + soc_nouse + ") then "+ free15;
+				var casefree10 = " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free10 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + value_free15 + " AND cars.battery " + soc_nouse + ") then "+ free10;
+				var casefree5 = " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free5 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + value_free10 + " AND cars.battery " + soc_nouse + ") then "+ free5;
+				var bonusJoin = " LEFT JOIN (SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool FROM (SELECT car_plate, case "+ casefree15 + casefree10 + casefree5 +" else 0 end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+				var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
 		        		queryString += ' AND status = $4 ';
@@ -159,19 +169,29 @@ module.exports = {
   		        	next.ifError(err);
                 }
 
-		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '',isSingle = false,bonusCond = '';
+		        var query = '',params = [],queryString = '', queryRecursive = '', querySelect = '', isSingle = false, bonusSelect = '';
 		        var queryParams = [null,null,null,null];
 		        var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
     				freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
     			// select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
     			var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
     			var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
-				//nouse - free15
-				var nouse = 1440; //minutes
-				var soc_nouse = "> 35";
-				var value_nouse = 15;
-				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then TRUE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
-
+				var soc_nouse = "> 30";
+				//free15
+				var free15 = 15;
+				var value_free15 = 1440; //minutes - 24h
+				//free10
+				var free10 = 10;
+				var value_free10 = 720; //minutes - 12h
+				//free5
+				var free5 = 5;
+				var value_free5 = 360; //minutes - 6h
+				//case 
+				var casefree15 = "when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free15 + " AND cars.battery " + soc_nouse + ") then "+ free15;
+				var casefree10 = " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free10 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + value_free15 + " AND cars.battery " + soc_nouse + ") then "+ free10;
+				var casefree5 = " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + value_free5 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + value_free10 + " AND cars.battery " + soc_nouse + ") then "+ free5;
+				var bonusJoin = " LEFT JOIN (SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool FROM (SELECT car_plate, case "+ casefree15 + casefree10 + casefree5 +" else 0 end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+				
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
 		        		queryString += ' AND status = $4 ';
@@ -180,7 +200,7 @@ module.exports = {
 					
 		        		queryString += freeCarCond;
 		        	if(typeof req.params.lat !== 'undefined' &&  typeof req.params.lon  !== 'undefined'){
-						querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value',15, 'status', cars_bonus.nouse_bool)) as bonus";
+						querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus";
 						queryRecursive += 'with recursive tab(plate,lon,lat,soc,fleet_id,dist,bonus) as (';
 						queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus from tab where dist < $3::int order by dist asc';
 		        		params[0] = req.params.lat;
@@ -188,20 +208,19 @@ module.exports = {
 		        		params[2] = req.params.radius || defaultDistance;
 		        	}
 					else {
-						bonusCond += ", json_build_array(json_build_object('type','nouse', 'value'," + value_nouse + " ,'status', cars_bonus.nouse_bool)) as bonus ";
+						bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
 					}
-	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusCond + " " + querySelect + "  FROM cars " + bonusSelect + " WHERE true " + queryString;
+	        		query = queryRecursive +"SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + querySelect + "  FROM cars " + bonusJoin + " WHERE true " + queryString;
 		        }else{
 		        	// single car
-					bonusCond += ", json_build_array(json_build_object('type','nouse', 'value'," + value_nouse + " ,'status', cars_bonus.nouse_bool)) as bonus ";
-		        	query = "SELECT cars.*" + fleetsSelect + bonusCond +" FROM cars " + fleetsJoin + bonusSelect + " WHERE plate = $1";
+					bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
+		        	query = "SELECT cars.*" + fleetsSelect + bonusSelect +" FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
 		        	params = [req.params.plate];
 		        	isSingle =true; 
 		        }
 		        /*if(!isSingle){
 		        	query += freeCarCond; 
 		        }*/
-		        
 		        client.query(
 		        	query, 
 		        	params,
