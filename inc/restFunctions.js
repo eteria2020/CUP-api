@@ -101,7 +101,7 @@ module.exports = {
 				var nouse = 1440; //minutes
 				var soc_nouse = "> 35";
 				var value_nouse = 15;
-				var bonusJoin = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then TRUE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+				var bonusJoin = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then FALSE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
     			var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value'," + value_nouse + " ,'status', cars_bonus.nouse_bool)) as bonus ";
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
@@ -170,7 +170,7 @@ module.exports = {
 				var nouse = 1440; //minutes
 				var soc_nouse = "> 35";
 				var value_nouse = 15;
-				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then TRUE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+				var bonusSelect = " LEFT JOIN (SELECT car_plate, case when (round(extract('epoch' from (now() - nouse)) / 60) >= " + nouse + " AND cars.battery " + soc_nouse + ") then FALSE else FALSE end as nouse_bool FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
 
 		        if(typeof  req.params.plate === 'undefined'){
 			        if(typeof req.params.status !== 'undefined'){
