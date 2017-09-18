@@ -89,7 +89,7 @@ module.exports = {
     				console.log('Errore getCars connect',err);
   		        	next.ifError(err);
                 }
-					        
+		        
     			client.query(
 		        	"SELECT conditions as conditions FROM free_fares WHERE active = TRUE", 
 		        	function(err, result) {
@@ -195,7 +195,7 @@ module.exports = {
   		        	next.ifError(err);
                 }
 				client.query(
-		        	"SELECT conditions as conditions FROM free_fares WHERE active = TRUE", 
+		        	"SELECT conditions as conditions FROM free_fares WHERE active = TRUE",
 		        	function(err, result) {
 		        		done();
 			            if (err) {
