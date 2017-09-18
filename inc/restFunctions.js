@@ -91,7 +91,7 @@ module.exports = {
                 }
 					        
     			client.query(
-		        	"SELECT conditions as conditions FROM free_fares WHERE id >= 4", 
+		        	"SELECT conditions as conditions FROM free_fares WHERE active = TRUE", 
 		        	function(err, result) {
 		        		done();
 			            if (err) {
@@ -195,7 +195,7 @@ module.exports = {
   		        	next.ifError(err);
                 }
 				client.query(
-		        	"SELECT conditions as conditions FROM free_fares WHERE id >= 4", 
+		        	"SELECT conditions as conditions FROM free_fares WHERE active = TRUE", 
 		        	function(err, result) {
 		        		done();
 			            if (err) {
