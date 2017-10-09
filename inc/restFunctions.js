@@ -1251,14 +1251,11 @@ module.exports = {
 		var outCode=200;
    	    var outTxt='';
         var outJson=null;
-		//var outJson="{teste2}";
-		
 		
 		if(!sanitizeInput(req,res)){
            outCode=400;
            outTxt="Invalid request";
-           //sendOutJSON(res,400,outTxt,outJson);
-		   sendOutJSON(res,400,outTxt,"riga 1274");
+           sendOutJSON(res,400,outTxt,outJson);
 		}else{
 			
 			if(typeof  req.params.customerId !== 'undefined'){
