@@ -421,6 +421,13 @@ process.on('uncaughtException', function (err) {
 		//passport.authenticate('basic', {session: false}),
 		funcs.chargePenalty
 	);
+	
+	//point
+	server.post(
+		'/v2/point/',
+		//passport.authenticate('basic', {session: false}),
+		funcs.getPoint
+	);
 
 /* / routes */
 }
