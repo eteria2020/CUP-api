@@ -1311,7 +1311,7 @@ module.exports = {
 		
 		return next();
 
-	}//end getPoint
+	},//end getPoint
 
 
 /* DELETE */
