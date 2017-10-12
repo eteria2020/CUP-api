@@ -406,7 +406,7 @@ process.on('uncaughtException', function (err) {
 	// pois
 	server.get(
 		'/v2/pois',
-		//passport.authenticate('basic', {session: false}),
+		passport.authenticate('basic', {session: false}),
 		funcs.getPois
 	);
 	
@@ -424,9 +424,9 @@ process.on('uncaughtException', function (err) {
 	
 	//point
 	server.post(
-		'/v2/point/',
-		//passport.authenticate('basic', {session: false}),
-		funcs.getPoint
+		'/v2/postPoint/',
+		passport.authenticate('basic', {session: false}),
+		funcs.postPoint
 	);
 
 /* / routes */
