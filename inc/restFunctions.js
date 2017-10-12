@@ -1246,68 +1246,73 @@ module.exports = {
 	 * @param  array   res  response
 	 * @param  function next handler
 	 */
-	getPoint: function(req, res, next) {
-		
-		var outCode=200;
-   	    var outTxt='';
-        var outJson=null;
-		
-		if(!sanitizeInput(req,res)){
-           outCode=400;
-           outTxt="Invalid request";
-           sendOutJSON(res,400,outTxt,outJson);
-		}else{
+	postPoint: function(req, res, next) {
+		if(sanitizeInput(req,res)){
 			
-			if(typeof  req.params.customerId !== 'undefined'){
-				var customerId = req.params.customerId;
+			var outCode=200;
+			var outTxt='';
+			var outJson=null;
+			
+			if(!sanitizeInput(req,res)){
+			   outCode=400;
+			   outTxt="Invalid request";
+			   sendOutJSON(res,400,outTxt,outJson);
+			}else{
 				
-				pg.connect(conString, function(err, client, done) {
+				//if(typeof  req.params.customerId !== 'undefined'){
+				//	var customerId = req.params.customerId;
+				
+				if(typeof  req.user.id !== 'undefined'){
+					var customerId = req.user.id;	
+					
+					
+					pg.connect(conString, function(err, client, done) {
 
-					if (err) {
-						done();
-						console.log('Errore getPoint connect',err);
-						next.ifError(err);
-					}
-										
-					client.query(
-						//"SELECT EXISTS(SELECT sum(total) as total,sum((CASE((valid_From is Null OR Valid_From <= now())AND(valid_to is Null OR Valid_to >= now())) WHEN 'TRUE' THEN (CASE ((insert_ts >= '2017-08-01' AND insert_ts <= '2017-08-31'))WHEN 'TRUE' THEN total  END)END)) as pointsCurrentTime from customers_points where customer_id = $1)",
-						"SELECT sum(total) as totalPoint,sum((CASE ((valid_From is Null OR Valid_From <= now())AND(valid_to is Null OR Valid_to >= now())) WHEN 'TRUE' THEN (CASE ((insert_ts >= cast(date_trunc('month', now()) as date) AND insert_ts <= cast(date_trunc('month', now()) as date) + interval '1 month' * 1))WHEN 'TRUE' THEN total  END)END)) as pointCurrentMounth from customers_points where customer_id = $1",
-						[req.params.customerId], 
-						function(err, result) {
+						if (err) {
 							done();
-							if (err) {		    				
-								console.log('Errore if exists customers_points',err);
-								next.ifError(err);
-							}
-
-							if(result.rowCount>0){
-								
-								if((typeof result !== 'undefined') && (result.rowCount>0)){
-									outTxt="OK";
-									outJson =  result.rows[0];
-								}else{
-									outTxt ='No point found';
-								}
-								
-								sendOutJSON(res,200,outTxt,outJson);
-							}else{
-								console.log('Errore getPoint no points',err);
-								sendOutJSON(res,400,'Invalid ...code',null);
-								return next();
-							}
+							console.log('Errore getPoint connect',err);
+							next.ifError(err);
 						}
-					);//end client.query
-				
-				});//end pg.connect
-				
-				
-			} else {
-	            outTxt="Invalid parameters";
-	            console.error('Invalid putcars parameters', req.params);
-	            sendOutJSON(res,400,outTxt,outJson);
+											
+						client.query(
+							//"SELECT EXISTS(SELECT sum(total) as total,sum((CASE((valid_From is Null OR Valid_From <= now())AND(valid_to is Null OR Valid_to >= now())) WHEN 'TRUE' THEN (CASE ((insert_ts >= '2017-08-01' AND insert_ts <= '2017-08-31'))WHEN 'TRUE' THEN total  END)END)) as pointsCurrentTime from customers_points where customer_id = $1)",
+							"SELECT sum(total) as totalPoint,sum((CASE ((valid_From is Null OR Valid_From <= now())AND(valid_to is Null OR Valid_to >= now())) WHEN 'TRUE' THEN (CASE ((insert_ts >= cast(date_trunc('month', now()) as date) AND insert_ts <= cast(date_trunc('month', now()) as date) + interval '1 month' * 1))WHEN 'TRUE' THEN total  END)END)) as pointCurrentMounth from customers_points where customer_id = $1",
+							[req.user.id], 
+							function(err, result) {
+								done();
+								if (err) {		    				
+									console.log('Errore if exists customers_points',err);
+									next.ifError(err);
+								}
+
+								if(result.rowCount>0){
+									
+									if((typeof result !== 'undefined') && (result.rowCount>0)){
+										outTxt="OK";
+										outJson =  result.rows[0];
+									}else{
+										outTxt ='No point found';
+									}
+									
+									sendOutJSON(res,200,outTxt,outJson);
+								}else{
+									console.log('Errore getPoint no points',err);
+									sendOutJSON(res,400,'Invalid ...code',null);
+									return next();
+								}
+							}
+						);//end client.query
+					
+					});//end pg.connect
+					
+					
+				} else {
+					outTxt="Invalid parameters";
+					console.error('Invalid putcars parameters', req.params);
+					sendOutJSON(res,400,outTxt,outJson);
+				}
 			}
 		}
-		
 		
 		return next();
 
