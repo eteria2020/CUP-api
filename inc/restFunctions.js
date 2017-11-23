@@ -784,7 +784,7 @@ module.exports = {
                                             );
                                             //fine insert
                                         } else {
-                                            outJson = {"penalty_loading_result": "true", "error": err_co};
+                                            outJson = {"penalty_loading_result": "false", "error": err_co};
                                             console.log('chargePenalty', req.connection.remoteAddress, 'coherent check error', err_co);
                                             sendOutJSON(res, 400, "KO", outJson);
                                             done();
