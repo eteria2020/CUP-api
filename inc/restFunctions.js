@@ -314,6 +314,7 @@ module.exports = {
 
                 try {
                     plate = json_parsed.vehicle_license_plate;
+                    plate = plate.toUpperCase();
                 } catch (err) {
                     error = "Vehicle license plate is not valid";
                 }
@@ -659,6 +660,8 @@ module.exports = {
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
                     if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1) {
                         error = "vehicle_license_plate is not valid.";
+                    } else {
+                        vehicle_license_plate = vehicle_license_plate.toUpperCase();
                     }
 
                     try {
@@ -734,7 +737,7 @@ module.exports = {
                 var outJson = {"penalty_loading_result": "false"};
                 if (error == "no_error") {
                     //inizio check coerenza
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = '" + vehicle_license_plate + "' AND fleet_id = '" + vehicle_fleet_id + "') as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = '" + customer_id + "') as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "') as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "' AND customer_id = '" + customer_id + "' AND '" + violation_timestamp + "' >= timestamp_beginning AND '" + violation_timestamp + "' <= timestamp_end AND car_plate = '" + vehicle_license_plate + "') as trip_coherent;";
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = '" + vehicle_license_plate + "' AND fleet_id = '" + vehicle_fleet_id + "') as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = '" + customer_id + "') as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "') as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "' AND customer_id = '" + customer_id + "' AND '" + violation_timestamp + "' >= timestamp_beginning AND '" + violation_timestamp + "' <= timestamp_end AND car_plate = '" + vehicle_license_plate + "') as trip_coherent, (SELECT id FROM safo_penalty where customer_id='" + customer_id + "' AND vehicle_fleet_id='" + vehicle_fleet_id + "' AND violation_category='" + violation_category + "' AND trip_id='" + trip_id + "' AND car_plate='" + vehicle_license_plate + "' AND violation_timestamp='" + violation_timestamp + "' AND violation_authority='" + violation_authority + "' AND violation_number='" + violation_number + "' AND violation_description='" + violation_description + "' AND rus_id='" + rus_id + "' AND violation_request_type='" + violation_request_type + "' AND violation_status='" + violation_status + "' order by id desc limit 1) as penalty_exist;";
                     client.query(
                             query_coherent,
                             function (err_co, result_co) {
@@ -745,6 +748,7 @@ module.exports = {
                                 } else {
                                     if ((typeof result_co !== 'undefined')) {
                                         var err_co = "no error";
+										var penalty_exist = 0;
                                         console.log(result_co.rows[0]);
                                         if (!result_co.rows[0]['trip_coherent']) {
                                             err_co = "trip is not coherent";
@@ -758,30 +762,60 @@ module.exports = {
                                         if (!result_co.rows[0]['customer_exist']) {
                                             err_co = "customer does not exist";
                                         }
+										if (!result_co.rows[0]['penalty_exist']) {
+											penalty_exist = 0;
+										} else {
+											penalty_exist = result_co.rows[0]['penalty_exist'];
+										}
 
                                         if (err_co == "no error") {
-                                            //inizio insert
-                                            var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '" + insert_ts + "', " + charged + ", NULL, " + customer_id + ", " + vehicle_fleet_id + ", " + violation_category + ", " + trip_id + ", '" + vehicle_license_plate + "', '" + violation_timestamp + "', '" + violation_authority + "', '" + violation_number + "', '" + violation_description + "', " + rus_id + ", " + violation_request_type + ", '" + violation_status + "', " + email_sent_timestamp + ", " + email_sent_ok + ", " + penalty_ok + ");";
-                                            client.query(
-                                                    query,
-                                                    function (err, result) {
-                                                        if (err) {
-                                                            console.log('chargePenalty', req.connection.remoteAddress, 'insert error', err);
-                                                            sendOutJSON(res, 400, "KO", outJson);
-                                                            next.ifError(err);
-                                                        } else {
-                                                            if ((typeof result !== 'undefined')) {
-                                                                outJson = {"penalty_loading_result": "true"};
-                                                            } else {
-                                                                outJson = {"penalty_loading_result": "false"};
-                                                            }
-                                                            console.log('chargePenalty', req.connection.remoteAddress, 'ok', customer_id, vehicle_license_plate);
-                                                            sendOutJSON(res, 200, "OK", outJson);
-                                                            done();
-                                                        }
-                                                    }
-                                            );
-                                            //fine insert
+											if (penalty_exist > 0) {
+												//inizio update
+												var query = "UPDATE safo_penalty SET insert_ts='" + insert_ts + "', charged=" + charged + ", customer_id=" + customer_id + ", vehicle_fleet_id=" + vehicle_fleet_id + ", violation_category=" + violation_category + ", trip_id=" + trip_id + ", car_plate='" + vehicle_license_plate + "', violation_timestamp='" + violation_timestamp + "', violation_authority='" + violation_authority + "', violation_number='" + violation_number + "', violation_description='" + violation_description + "', rus_id=" + rus_id + ", violation_request_type=" + violation_request_type + ", violation_status='" + violation_status + "', email_sent_timestamp=" + email_sent_timestamp + ", email_sent_ok=" + email_sent_ok + ", penalty_ok=" + penalty_ok + ");";
+												client.query(
+													query,
+													function (err, result) {
+														if (err) {
+															console.log('chargePenalty', req.connection.remoteAddress, 'insert error', err);
+															sendOutJSON(res, 400, "KO", outJson);
+															next.ifError(err);
+														} else {
+															if ((typeof result !== 'undefined')) {
+																outJson = {"penalty_loading_result": "true"};
+															} else {
+																outJson = {"penalty_loading_result": "false"};
+															}
+															console.log('chargePenalty', req.connection.remoteAddress, 'ok', customer_id, vehicle_license_plate);
+															sendOutJSON(res, 200, "OK", outJson);
+															done();
+														}
+													}
+												);
+												//fine update
+											} else {
+												//inizio insert
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '" + insert_ts + "', " + charged + ", NULL, " + customer_id + ", " + vehicle_fleet_id + ", " + violation_category + ", " + trip_id + ", '" + vehicle_license_plate + "', '" + violation_timestamp + "', '" + violation_authority + "', '" + violation_number + "', '" + violation_description + "', " + rus_id + ", " + violation_request_type + ", '" + violation_status + "', " + email_sent_timestamp + ", " + email_sent_ok + ", " + penalty_ok + ");";
+												client.query(
+													query,
+													function (err, result) {
+														if (err) {
+															console.log('chargePenalty', req.connection.remoteAddress, 'insert error', err);
+															sendOutJSON(res, 400, "KO", outJson);
+															next.ifError(err);
+														} else {
+															if ((typeof result !== 'undefined')) {
+																outJson = {"penalty_loading_result": "true"};
+															} else {
+																outJson = {"penalty_loading_result": "false"};
+															}
+															console.log('chargePenalty', req.connection.remoteAddress, 'ok', customer_id, vehicle_license_plate);
+															sendOutJSON(res, 200, "OK", outJson);
+															done();
+														}
+													}
+												);
+												//fine insert
+											}
                                         } else {
                                             outJson = {"penalty_loading_result": "false", "error": err_co};
                                             console.log('chargePenalty', req.connection.remoteAddress, 'coherent check error', err_co);
