@@ -621,6 +621,8 @@ module.exports = {
                 var email_sent_timestamp = "NULL";
                 var email_sent_ok = "NULL";
                 var penalty_ok = "NULL";
+                var amount = -1;
+                var complete = false;
 
                 var error = "no_error";
                 try {
@@ -730,6 +732,29 @@ module.exports = {
                     } else {
                         penalty_ok = "NULL";
                     }
+					
+					if ((typeof json_parsed.amount !== 'undefined')) {
+                        amount = json_parsed.amount;
+						if (isNaN(amount)) {
+							error = "amount is not valid.";
+						} else {
+							if (amount < 0) {
+								error = "amount is not valid.";
+							}
+						}
+                    } else {
+						error = "amount is not valid.";
+                    }
+					
+					if ((typeof json_parsed.complete !== 'undefined')) {
+						if(typeof(json_parsed.complete) === "boolean"){
+							complete = json_parsed.complete;
+						}else{
+							error = "complete is not valid.";
+						}
+                    } else {
+                        error = "complete is not valid.";
+                    }
 
                 } catch (err) {
                     error = "JSON is not valid";
@@ -771,7 +796,7 @@ module.exports = {
                                         if (err_co == "no error") {
 											if (penalty_exist > 0) {
 												//inizio update
-												var query = "UPDATE safo_penalty SET insert_ts='" + insert_ts + "', charged=" + charged + ", customer_id=" + customer_id + ", vehicle_fleet_id=" + vehicle_fleet_id + ", violation_category=" + violation_category + ", trip_id=" + trip_id + ", car_plate='" + vehicle_license_plate + "', violation_timestamp='" + violation_timestamp + "', violation_authority='" + violation_authority + "', violation_number='" + violation_number + "', violation_description='" + violation_description + "', rus_id=" + rus_id + ", violation_request_type=" + violation_request_type + ", violation_status='" + violation_status + "', email_sent_timestamp=" + email_sent_timestamp + ", email_sent_ok=" + email_sent_ok + ", penalty_ok=" + penalty_ok + " WHERE id="+penalty_exist+";";
+												var query = "UPDATE safo_penalty SET insert_ts='" + insert_ts + "', charged=" + charged + ", customer_id=" + customer_id + ", vehicle_fleet_id=" + vehicle_fleet_id + ", violation_category=" + violation_category + ", trip_id=" + trip_id + ", car_plate='" + vehicle_license_plate + "', violation_timestamp='" + violation_timestamp + "', violation_authority='" + violation_authority + "', violation_number='" + violation_number + "', violation_description='" + violation_description + "', rus_id=" + rus_id + ", violation_request_type=" + violation_request_type + ", violation_status='" + violation_status + "', email_sent_timestamp=" + email_sent_timestamp + ", email_sent_ok=" + email_sent_ok + ", penalty_ok=" + penalty_ok + ", amount=" + amount + ", complete=" + complete + " WHERE id=" + penalty_exist + ";";
 												client.query(
 													query,
 													function (err, result) {
@@ -794,7 +819,7 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '" + insert_ts + "', " + charged + ", NULL, " + customer_id + ", " + vehicle_fleet_id + ", " + violation_category + ", " + trip_id + ", '" + vehicle_license_plate + "', '" + violation_timestamp + "', '" + violation_authority + "', '" + violation_number + "', '" + violation_description + "', " + rus_id + ", " + violation_request_type + ", '" + violation_status + "', " + email_sent_timestamp + ", " + email_sent_ok + ", " + penalty_ok + ");";
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '" + insert_ts + "', " + charged + ", NULL, " + customer_id + ", " + vehicle_fleet_id + ", " + violation_category + ", " + trip_id + ", '" + vehicle_license_plate + "', '" + violation_timestamp + "', '" + violation_authority + "', '" + violation_number + "', '" + violation_description + "', " + rus_id + ", " + violation_request_type + ", '" + violation_status + "', " + email_sent_timestamp + ", " + email_sent_ok + ", " + penalty_ok + ", " + amount + ", " + complete + ");";
 												client.query(
 													query,
 													function (err, result) {
