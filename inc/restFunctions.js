@@ -653,10 +653,12 @@ module.exports = {
                     }
                     trip_id = json_parsed.trip_id;
                     if (isNaN(trip_id)) {
-                        error = "trip_id is not valid.";
+                        //error = "trip_id is not valid.";
+						trip_id = 0;
                     } else {
                         if (trip_id.length <= 0) {
-                            error = "trip_id is not valid.";
+                            //error = "trip_id is not valid.";
+							trip_id = 0;
                         }
                     }
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
