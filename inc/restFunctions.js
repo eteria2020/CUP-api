@@ -637,10 +637,12 @@ module.exports = {
                     }
                     vehicle_fleet_id = json_parsed.vehicle_fleet_id;
                     if (isNaN(vehicle_fleet_id)) {
-                        error = "vehicle_fleet_id is not valid.";
+                        //error = "vehicle_fleet_id is not valid.";
+						vehicle_fleet_id = 0;
                     } else {
                         if (vehicle_fleet_id.length <= 0) {
-                            error = "vehicle_fleet_id is not valid.";
+                            //error = "vehicle_fleet_id is not valid.";
+							vehicle_fleet_id = 0;
                         }
                     }
                     violation_category = json_parsed.violation_category;
