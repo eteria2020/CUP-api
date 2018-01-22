@@ -629,11 +629,17 @@ module.exports = {
                     json_parsed = JSON.parse(req.body);
                     customer_id = json_parsed.customer_id;
                     if (isNaN(customer_id)) {
-                        error = "customer_id is not valid.";
+                        //error = "customer_id is not valid.";
+						customer_id = 0;
                     } else {
                         if (customer_id.length <= 0) {
-                            error = "customer_id is not valid.";
-                        }
+                            //error = "customer_id is not valid.";
+							customer_id = 0;
+                        }else{
+							if (customer_id <= 0) {
+								error = "customer_id is not valid.";
+							}
+						}
                     }
                     vehicle_fleet_id = json_parsed.vehicle_fleet_id;
                     if (isNaN(vehicle_fleet_id)) {
@@ -643,7 +649,11 @@ module.exports = {
                         if (vehicle_fleet_id.length <= 0) {
                             //error = "vehicle_fleet_id is not valid.";
 							vehicle_fleet_id = 0;
-                        }
+                        }else{
+							if (vehicle_fleet_id <= 0) {
+								error = "vehicle_fleet_id is not valid.";
+							}
+						}
                     }
                     violation_category = json_parsed.violation_category;
                     if (isNaN(violation_category)) {
@@ -655,11 +665,17 @@ module.exports = {
                     }
                     trip_id = json_parsed.trip_id;
                     if (isNaN(trip_id)) {
-                        error = "trip_id is not valid.";
+						//error = "trip_id is not valid.";
+						trip_id = 0;
                     } else {
                         if (trip_id.length <= 0) {
-                            error = "trip_id is not valid.";
-                        }
+							//error = "trip_id is not valid.";
+							trip_id = 0;
+                        }else{
+							if (trip_id <= 0) {
+								error = "trip_id is not valid.";
+							}
+						}
                     }
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
                     if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1) {
@@ -777,16 +793,16 @@ module.exports = {
                                         var err_co = "no error";
 										var penalty_exist = 0;
                                         console.log(result_co.rows[0]);
-                                        if (!result_co.rows[0]['trip_coherent']) {
+                                        if ((!result_co.rows[0]['trip_coherent'])&&(trip_id>0)&&(customer_id>0)) {
                                             err_co = "trip is not coherent";
                                         }
-                                        if (!result_co.rows[0]['trip_exist']) {
+                                        if ((!result_co.rows[0]['trip_exist'])&&(trip_id>0)) {
                                             err_co = "trip does not exist";
                                         }
                                         if (!result_co.rows[0]['plate_exist']) {
                                             err_co = "plate does not exist";
                                         }
-                                        if (!result_co.rows[0]['customer_exist']) {
+                                        if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
                                             err_co = "customer does not exist";
                                         }
 										if (!result_co.rows[0]['penalty_exist']) {
