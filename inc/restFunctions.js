@@ -636,7 +636,7 @@ module.exports = {
                             //error = "customer_id is not valid.";
 							customer_id = 0;
                         }else{
-							if (customer_id <= 0) {
+							if (customer_id < 0) {
 								error = "customer_id is not valid.";
 							}
 						}
@@ -650,7 +650,7 @@ module.exports = {
                             //error = "vehicle_fleet_id is not valid.";
 							vehicle_fleet_id = 0;
                         }else{
-							if (vehicle_fleet_id <= 0) {
+							if (vehicle_fleet_id < 0) {
 								error = "vehicle_fleet_id is not valid.";
 							}
 						}
@@ -672,7 +672,7 @@ module.exports = {
 							//error = "trip_id is not valid.";
 							trip_id = 0;
                         }else{
-							if (trip_id <= 0) {
+							if (trip_id < 0) {
 								error = "trip_id is not valid.";
 							}
 						}
