@@ -148,7 +148,7 @@ module.exports = {
                                     params[1] = req.params.lon;
                                     params[2] = req.params.radius || defaultDistance;
                                 }
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE true " + queryString;
+                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
                             } else {
                                 // single car
                                 query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
@@ -256,7 +256,7 @@ module.exports = {
                                 } else {
                                     bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
                                 }
-                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + querySelect + "  FROM cars " + bonusJoin + " WHERE true " + queryString;
+                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + querySelect + "  FROM cars " + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
                             } else {
                                 // single car
                                 bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
