@@ -678,8 +678,9 @@ module.exports = {
 						}
                     }
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
-                    if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1) {
-                        error = "vehicle_license_plate is not valid.";
+                    if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1 || vehicle_license_plate==0) {
+                        //error = "vehicle_license_plate is not valid.";
+						vehicle_license_plate = "no_plate";
                     } else {
                         vehicle_license_plate = vehicle_license_plate.toUpperCase();
                     }
@@ -780,7 +781,7 @@ module.exports = {
                 var outJson = {"penalty_loading_result": "false"};
                 if (error == "no_error") {
                     //inizio check coerenza
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = '" + vehicle_license_plate + "') as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = '" + customer_id + "') as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "') as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "' AND customer_id = '" + customer_id + "' AND car_plate = '" + vehicle_license_plate + "') as trip_coherent, (SELECT id FROM safo_penalty where customer_id='" + customer_id + "' AND violation_category='" + violation_category + "' AND trip_id='" + trip_id + "' AND car_plate='" + vehicle_license_plate + "' AND violation_timestamp='" + violation_timestamp + "' AND violation_authority='" + violation_authority + "' AND violation_number='" + violation_number + "' AND violation_description='" + violation_description + "' AND rus_id='" + rus_id + "' AND violation_request_type='" + violation_request_type + "' order by id desc limit 1) as penalty_exist;";
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = '" + vehicle_license_plate + "') as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = '" + customer_id + "') as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "') as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "' AND customer_id = '" + customer_id + "' AND car_plate = '" + vehicle_license_plate + "') as trip_coherent, (SELECT id FROM safo_penalty where customer_id='" + customer_id + "' AND violation_category='" + violation_category + "' AND trip_id='" + trip_id + "' AND violation_timestamp='" + violation_timestamp + "' AND violation_authority='" + violation_authority + "' AND violation_number='" + violation_number + "' AND violation_description='" + violation_description + "' AND rus_id='" + rus_id + "' AND violation_request_type='" + violation_request_type + "' order by id desc limit 1) as penalty_exist;";
                     client.query(
                             query_coherent,
                             function (err_co, result_co) {
@@ -793,13 +794,13 @@ module.exports = {
                                         var err_co = "no error";
 										var penalty_exist = 0;
                                         console.log(result_co.rows[0]);
-                                        if ((!result_co.rows[0]['trip_coherent'])&&(trip_id>0)&&(customer_id>0)) {
+                                        if ((!result_co.rows[0]['trip_coherent'])&&(trip_id>0)&&(customer_id>0)&&(vehicle_license_plate!="no_plate")) {
                                             err_co = "trip is not coherent";
                                         }
                                         if ((!result_co.rows[0]['trip_exist'])&&(trip_id>0)) {
                                             err_co = "trip does not exist";
                                         }
-                                        if (!result_co.rows[0]['plate_exist']) {
+                                        if ((!result_co.rows[0]['plate_exist'])&&(vehicle_license_plate!="no_plate")) {
                                             err_co = "plate does not exist";
                                         }
                                         if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
