@@ -154,10 +154,10 @@ module.exports = {
                                     params[1] = req.params.lon;
                                     params[2] = req.params.radius || defaultDistance;
                                 }
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + unplugSelect + " WHERE cars.fleet_id <= 100 " + queryString;
+                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + unplugJoin + " WHERE cars.fleet_id <= 100 " + queryString;
                             } else {
                                 // single car
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + unplugSelect + " WHERE plate = $1";
+                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + unplugJoin + " WHERE plate = $1";
                                 params = [req.params.plate];
                                 isSingle = true;
                             }
