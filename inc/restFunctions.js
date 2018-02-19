@@ -261,14 +261,14 @@ module.exports = {
                                 if (typeof req.params.lat !== 'undefined' && typeof req.params.lon !== 'undefined') {
                                     querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus";
                                     queryRecursive += 'with recursive tab(plate,lon,lat,soc,fleet_id,dist,bonus) as (';
-                                    queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus from tab where dist < $3::int order by dist asc';
+                                    queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus,unplug from tab where dist < $3::int order by dist asc';
                                     params[0] = req.params.lat;
                                     params[1] = req.params.lon;
                                     params[2] = req.params.radius || defaultDistance;
                                 } else {
                                     bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
                                 }
-                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + unplugSelect + " " + querySelect + "  FROM cars " + bonusJoin + unplugJoin + " WHERE cars.fleet_id <= 100 " + queryString;
+                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + querySelect + " " + unplugSelect + "  FROM cars " + bonusJoin + unplugJoin + " WHERE cars.fleet_id <= 100 " + queryString;
                             } else {
                                 // single car
                                 bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
@@ -276,6 +276,7 @@ module.exports = {
                                 params = [req.params.plate];
                                 isSingle = true;
                             }
+
                             /*if(!isSingle){
                              query += freeCarCond; 
                              }*/
