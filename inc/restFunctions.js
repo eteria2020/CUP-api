@@ -1,7 +1,7 @@
 var expo = require('../index').expo;
 var pg = expo.pg;
 var conString = expo.conString;
-var port = expo.port;
+//var port = expo.port;
 var validator = expo.validator;
 var defaultDistance = expo.defaultDistance;
 
@@ -15,7 +15,7 @@ module.exports = {
      * @param  function next handler
      */
     getUser: function (req, res, next) {
-        var bonus = 0;
+        //var bonus = 0;
         if (sanitizeInput(req, res)) {
 
             pg.connect(conString, function (err, client, done) {
@@ -104,17 +104,17 @@ module.exports = {
                             if (typeof result !== 'undefined' && (result.rowCount > 0)) {
                                 for (i = 0; i < result.rowCount; i++) {
                                     freeFares[i] = JSON.parse(result.rows[i].conditions);
-                                    if (typeof freeFares[i].car != 'undefined') {
-                                        if (freeFares[i].car.type == 'nouse') {
-                                            if (freeFares[i].car.fleet == 'undefined') {
+                                    if (typeof freeFares[i].car !== 'undefined') {
+                                        if (freeFares[i].car.type === 'nouse') {
+                                            if (freeFares[i].car.fleet === 'undefined') {
                                                 continue;
                                             }
                                             var now = new Date();
-                                            if (typeof freeFares[i].car.dow[now.getDay().toString()] == 'undefined') {
+                                            if (typeof freeFares[i].car.dow[now.getDay().toString()] === 'undefined') {
                                                 continue;
                                             } else {
                                                 var timeInterval = freeFares[i].car.dow[now.getDay().toString()].split("-");
-                                                if (typeof freeFares[i].car.max == 'undefined') {
+                                                if (typeof freeFares[i].car.max === 'undefined') {
                                                     caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
                                                 } else {
                                                     caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + freeFares[i].car.max * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
@@ -216,9 +216,9 @@ module.exports = {
                             if (typeof result !== 'undefined' && (result.rowCount > 0)) {
                                 for (i = 0; i < result.rowCount; i++) {
                                     freeFares[i] = JSON.parse(result.rows[i].conditions);
-                                    if (typeof freeFares[i].car != 'undefined') {
-                                        if (freeFares[i].car.type == 'nouse') {
-                                            if (freeFares[i].car.fleet == 'undefined') {
+                                    if (typeof freeFares[i].car !== 'undefined') {
+                                        if (freeFares[i].car.type === 'nouse') {
+                                            if (freeFares[i].car.fleet === 'undefined') {
                                                 continue;
                                             }
                                             var now = new Date();
@@ -226,7 +226,7 @@ module.exports = {
                                                 continue;
                                             } else {
                                                 var timeInterval = freeFares[i].car.dow[now.getDay().toString()].split("-");
-                                                if (typeof freeFares[i].car.max == 'undefined') {
+                                                if (typeof freeFares[i].car.max === 'undefined') {
                                                     caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
                                                 } else {
                                                     caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + freeFares[i].car.max * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
