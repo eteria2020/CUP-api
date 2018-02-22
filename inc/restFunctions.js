@@ -313,7 +313,7 @@ module.exports = {
                             /*if(!isSingle){
                              query += freeCarCond; 
                              }*/
-                            console.log('Query ', query);
+                            //console.log('Query ', query);
                             client.query(
                                     query,
                                     params,
