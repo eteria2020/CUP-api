@@ -97,7 +97,7 @@ module.exports = {
                                 console.log('Error free_fares', err);
                                 next.ifError(err);
                             }
-                            const UNPLUG_VALUE = 4;
+                            var unplugValue = 0;
                             var freeFares = [];
                             var caseFree = '';
                             var verify = 0;
@@ -122,11 +122,25 @@ module.exports = {
                                                 verify++;
                                             }
                                         }
+                                    } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
+                                        if (freeFares[i].unplug_enable.value !== 'undefined') {
+                                            unplugValue = freeFares[i].unplug_enable.value;
+                                        }
                                     }
                                 }
                             }
                             if (verify === 0) {
                                 caseFree = ' when true then 0 '; //to improve
+                            }
+
+                            var unplugSelect = "";
+                            var unplugCase = "";
+                            var unplugCase2 = "";
+
+                            if(unplugValue>0) {
+                                unplugCase = ", unplug_enable, case when unplug_enable then " + unplugValue + " else 0 end as unplug_value ";
+                                unplugCase2 = ", cars_bonus.unplug_enable ";
+                                unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
                             }
 
                             var query = '', params = [], queryString = '', isSingle = false;
@@ -138,12 +152,11 @@ module.exports = {
                             var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
                             var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
-                            var bonusJoin = " LEFT JOIN (SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool, unplug_enable, case when unplug_enable then " + UNPLUG_VALUE + " else 0 end as unplug_value " + 
-                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool, cars_bonus.unplug_enable " + 
+                            var bonusJoin = " LEFT JOIN ( " +
+                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool " + unplugCase + 
+                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 + 
                                 "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
                             var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
-
-                            var unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
 
                             if (typeof req.params.plate === 'undefined') {
                                 if (typeof req.params.status !== 'undefined') {
@@ -209,7 +222,7 @@ module.exports = {
                                 console.log('Error free_fares', err);
                                 next.ifError(err);
                             }
-                            const UNPLUG_VALUE = 4;
+                            var unplugValue = 4;
                             var freeFares = [];
                             var caseFree = '';
                             var verify = 0;
@@ -234,11 +247,27 @@ module.exports = {
                                                 verify++;
                                             }
                                         }
+                                    } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
+                                        if (freeFares[i].unplug_enable.value !== 'undefined') {
+                                            unplugValue = freeFares[i].unplug_enable.value;
+                                        }
                                     }
                                 }
                             }
                             if (verify === 0) {
                                 caseFree = ' when true then 0 '; //to improve
+                            }
+
+                            var unplugSelect = "";
+                            var unplugCase = "";
+                            var unplugCase2 = "";
+                            var unplugCase3 = "";
+
+                            if(unplugValue>0) {
+                                unplugCase = ", unplug_enable, case when unplug_enable then " + unplugValue + " else 0 end as unplug_value ";
+                                unplugCase2 = ", cars_bonus.unplug_enable ";
+                                unplugCase3 = ",unplug ";
+                                unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
                             }
 
                             var query = '', params = [], queryString = '', queryRecursive = '', querySelect = '', isSingle = false, bonusSelect = '';
@@ -251,11 +280,9 @@ module.exports = {
                             var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
                             var bonusJoin = " LEFT JOIN ( " +
-                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool, unplug_enable, case when unplug_enable then " + UNPLUG_VALUE + " else 0 end as unplug_value " + 
-                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool, cars_bonus.unplug_enable " + 
+                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool " + unplugCase + 
+                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 + 
                                 "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
-
-                            var unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
 
                             if (typeof req.params.plate === 'undefined') {
                                 if (typeof req.params.status !== 'undefined') {
@@ -267,7 +294,7 @@ module.exports = {
                                 if (typeof req.params.lat !== 'undefined' && typeof req.params.lon !== 'undefined') {
                                     querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus";
                                     queryRecursive += 'with recursive tab(plate,lon,lat,soc,fleet_id,dist,bonus) as (';
-                                    queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus,unplug from tab where dist < $3::int order by dist asc';
+                                    queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus' + unplugCase3 + ' from tab where dist < $3::int order by dist asc';
                                     params[0] = req.params.lat;
                                     params[1] = req.params.lon;
                                     params[2] = req.params.radius || defaultDistance;
