@@ -90,116 +90,132 @@ module.exports = {
                 }
 
                 client.query(
-                        "SELECT conditions as conditions FROM free_fares WHERE active = TRUE",
-                        function (err, result) {
-                            done();
-                            if (err) {
-                                console.log('Error free_fares', err);
-                                next.ifError(err);
-                            }
-                            var unplugValue = 0;
-                            var freeFares = [];
-                            var caseFree = '';
-                            var verify = 0;
-                            if (typeof result !== 'undefined' && (result.rowCount > 0)) {
-                                for (i = 0; i < result.rowCount; i++) {
-                                    freeFares[i] = JSON.parse(result.rows[i].conditions);
-                                    if (typeof freeFares[i].car !== 'undefined') {
-                                        if (freeFares[i].car.type === 'nouse') {
-                                            if (freeFares[i].car.fleet === 'undefined') {
-                                                continue;
-                                            }
-                                            var now = new Date();
-                                            if (typeof freeFares[i].car.dow[now.getDay().toString()] === 'undefined') {
-                                                continue;
-                                            } else {
-                                                var timeInterval = freeFares[i].car.dow[now.getDay().toString()].split("-");
-                                                if (typeof freeFares[i].car.max === 'undefined') {
-                                                    caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
-                                                } else {
-                                                    caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + freeFares[i].car.max * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
-                                                }
-                                                verify++;
-                                            }
-                                        }
-                                    } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
-                                        if (freeFares[i].unplug_enable.value !== 'undefined') {
-                                            unplugValue = freeFares[i].unplug_enable.value;
-                                        }
-                                    }
-                                }
-                            }
-                            if (verify === 0) {
-                                caseFree = ' when true then 0 '; //to improve
-                            }
-
-                            var unplugSelect = "";
-                            var unplugCase = "";
-                            var unplugCase2 = "";
-
-                            if(unplugValue>0) {
-                                unplugCase = ", unplug_enable, case when unplug_enable then " + unplugValue + " else 0 end as unplug_value ";
-                                unplugCase2 = ", cars_bonus.unplug_enable ";
-                                unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
-                            }
-
-                            var query = '', params = [], queryString = '', isSingle = false;
-
-                            var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
-                            freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
-                            // select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
-
-                            var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
-                            var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
-
-                            var bonusJoin = " LEFT JOIN ( " +
-                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool " + unplugCase + 
-                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 + 
-                                "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
-                            var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
-
-                            if (typeof req.params.plate === 'undefined') {
-                                if (typeof req.params.status !== 'undefined') {
-                                    queryString += ' AND status = $4 ';
-                                    params[3] = req.params.status;
-                                }
-                                if (typeof req.params.lat !== 'undefined' && typeof req.params.lon !== 'undefined') {
-                                    queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
-                                    params[0] = req.params.lat;
-                                    params[1] = req.params.lon;
-                                    params[2] = req.params.radius || defaultDistance;
-                                }
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
-                            } else {
-                                // single car
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
-                                params = [req.params.plate];
-                                isSingle = true;
-                            }
-                            if (!isSingle) {
-                                query += freeCarCond;
-                            }
-
-                            //console.log('Query ', query);
-                            client.query(
-                                    query,
-                                    params,
-                                    function (err, result) {
-                                        done();
-                                        if (err) {
-                                            console.log('Errore getCars select', err);
-                                            next.ifError(err);
-                                        }
-                                        var outTxt = '', outJson = null;
-                                        if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
-                                            outJson = !isSingle ? result.rows : result.rows[0];
-                                        } else {
-                                            outTxt = 'No cars found';
-                                        }
-                                        sendOutJSON(res, 200, outTxt, outJson);
-                                    }
-                            );
+                    "SELECT conditions as conditions FROM free_fares WHERE active = TRUE",
+                    function (err, result) {
+                        done();
+                        if (err) {
+                            console.log('Error free_fares', err);
+                            next.ifError(err);
                         }
+                        var unplugValue = 0;
+                        var freeFares = [];
+                        var caseFree = '';
+                        var verify = 0;
+                        if (typeof result !== 'undefined' && (result.rowCount > 0)) {
+                            for (i = 0; i < result.rowCount; i++) {
+                                freeFares[i] = JSON.parse(result.rows[i].conditions);
+                                if (typeof freeFares[i].car !== 'undefined') {
+                                    if (freeFares[i].car.type === 'nouse') {
+                                        if (typeof freeFares[i].car.fleet === 'undefined') {
+                                            continue;
+                                        }
+                                        var now = new Date();
+                                        if (typeof freeFares[i].car.dow[now.getDay().toString()] === 'undefined') {
+                                            continue;
+                                        } else {
+                                            var timeInterval = freeFares[i].car.dow[now.getDay().toString()].split("-");
+                                            if (typeof freeFares[i].car.max === 'undefined') {
+                                                caseFree += " WHEN (ROUND(EXTRACT('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 +
+                                                    " AND cars.fleet_id = " + freeFares[i].car.fleet +
+                                                    " AND cars.battery > " + freeFares[i].car.soc +
+                                                    " AND now() >= (date 'now()' + time '" + timeInterval[0] +
+                                                    "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) THEN " + freeFares[i].car.value;
+                                            } else {
+                                                caseFree += " WHEN (ROUND(EXTRACT('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 +
+                                                    " AND ROUND(EXTRACT('epoch' from (now() - nouse)) / 60) < " + freeFares[i].car.max * 60 +
+                                                    " AND cars.fleet_id = " + freeFares[i].car.fleet +
+                                                    " AND cars.battery > " + freeFares[i].car.soc +
+                                                    " AND now() >= (date 'now()' + time '" + timeInterval[0] +
+                                                    "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) THEN " + freeFares[i].car.value;
+                                            }
+                                            verify++;
+                                        }
+                                    }
+                                } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
+                                    if (typeof freeFares[i].unplug_enable.value !== 'undefined') {
+                                        unplugValue = freeFares[i].unplug_enable.value;
+                                    }
+                                }
+                            }
+                        }
+                        if (verify === 0) {
+                            caseFree = ' WHEN TRUE THEN 0 '; //to improve
+                        }
+
+                        var unplugCase = "";
+                        var unplugCase2 = "";
+
+                        if(unplugValue>0) {
+                            unplugCase = ", unplug_enable, CASE WHEN unplug_enable THEN " + unplugValue + " ELSE 0 END AS unplug_value ";
+                            unplugCase2 = ", cars_bonus.unplug_enable ";
+                        }
+
+                        var query = '', params = [], queryString = '', isSingle = false;
+
+                        var freeCarCond = " AND " +
+                            "status = 'operative' AND " +
+                            "active IS TRUE AND " +
+                            "busy IS FALSE AND " +
+                            "hidden IS FALSE AND " +
+                            "plate NOT IN (" + 
+                                "SELECT car_plate FROM reservations WHERE active is TRUE) ";
+
+                        var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) AS fleets ";
+                        var fleetsJoin = " LEFT JOIN fleets ON cars.fleet_id = fleets.id ";
+
+                        var bonusJoin = " LEFT JOIN ( " +
+                            "SELECT car_plate, nouse_bool as nouse_value, CASE WHEN nouse_bool != 0 THEN TRUE ELSE FALSE end as nouse_bool " + unplugCase +
+                            "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 +
+                            "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) AS cars_free) AS cars_bonus ON cars.plate = cars_bonus.car_plate ";
+
+                        var bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) AS bonus ";
+                        if(unplugValue>0) {
+                             bonusSelect = ", json_build_array(json_build_object('type','unplug', 'value', unplug_value ,'status', cars_bonus.unplug_enable)) AS bonus ";
+                         }
+
+                        if (typeof req.params.plate === 'undefined') {
+                            if (typeof req.params.status !== 'undefined') {
+                                queryString += ' AND status = $4 ';
+                                params[3] = req.params.status;
+                            }
+                            if (typeof req.params.lat !== 'undefined' && typeof req.params.lon !== 'undefined') {
+                                queryString += ' AND ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2, $1), 4326)) < $3::int ';
+                                params[0] = req.params.lat;
+                                params[1] = req.params.lon;
+                                params[2] = req.params.radius || defaultDistance;
+                            }
+
+                            query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
+                        } else {
+                            // single car
+                            query = "SELECT cars.*" + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
+                            params = [req.params.plate];
+                            isSingle = true;
+                        }
+                        if (!isSingle) {
+                            query += freeCarCond;
+                        }
+
+                        //console.log('Query ', query);
+                        client.query(
+                                query,
+                                params,
+                                function (err, result) {
+                                    done();
+                                    if (err) {
+                                        console.log('Errore getCars select', err);
+                                        next.ifError(err);
+                                    }
+                                    var outTxt = '', outJson = null;
+                                    if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
+                                        outJson = !isSingle ? result.rows : result.rows[0];
+                                    } else {
+                                        outTxt = 'No cars found';
+                                    }
+                                    sendOutJSON(res, 200, outTxt, outJson);
+                                }
+                        );
+                    }
                 );
             });
         }
@@ -222,7 +238,7 @@ module.exports = {
                                 console.log('Error free_fares', err);
                                 next.ifError(err);
                             }
-                            var unplugValue = 4;
+                            var unplugValue = 0;
                             var freeFares = [];
                             var caseFree = '';
                             var verify = 0;
@@ -231,7 +247,7 @@ module.exports = {
                                     freeFares[i] = JSON.parse(result.rows[i].conditions);
                                     if (typeof freeFares[i].car !== 'undefined') {
                                         if (freeFares[i].car.type === 'nouse') {
-                                            if (freeFares[i].car.fleet === 'undefined') {
+                                            if (typeof freeFares[i].car.fleet === 'undefined') {
                                                 continue;
                                             }
                                             var now = new Date();
@@ -240,49 +256,58 @@ module.exports = {
                                             } else {
                                                 var timeInterval = freeFares[i].car.dow[now.getDay().toString()].split("-");
                                                 if (typeof freeFares[i].car.max === 'undefined') {
-                                                    caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
+                                                    caseFree += " WHEN (ROUND(EXTRACT('epoch' FROM (NOW() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 +
+                                                        " AND cars.fleet_id = " + freeFares[i].car.fleet +
+                                                        " AND cars.battery > " + freeFares[i].car.soc +
+                                                        " AND now() >= (date 'now()' + time '" + timeInterval[0] +
+                                                        "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) THEN " + freeFares[i].car.value;
                                                 } else {
-                                                    caseFree += " when (round(extract('epoch' from (now() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 + " AND round(extract('epoch' from (now() - nouse)) / 60) < " + freeFares[i].car.max * 60 + " AND cars.fleet_id = " + freeFares[i].car.fleet + " AND cars.battery > " + freeFares[i].car.soc + " AND now() >= (date 'now()' + time '" + timeInterval[0] + "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) then " + freeFares[i].car.value;
+                                                    caseFree += " WHEN (ROUND(EXTRACT('epoch' FROM (NOW() - nouse)) / 60) >= " + freeFares[i].car.hour * 60 +
+                                                        " AND ROUND(EXTRACT('epoch' FROM (NOW() - nouse)) / 60) < " + freeFares[i].car.max * 60 +
+                                                        " AND cars.fleet_id = " + freeFares[i].car.fleet +
+                                                        " AND cars.battery > " + freeFares[i].car.soc +
+                                                        " AND now() >= (date 'now()' + time '" + timeInterval[0] +
+                                                        "') AND now() <= (date 'now()' + time '" + timeInterval[1] + "')) THEN " + freeFares[i].car.value;
                                                 }
                                                 verify++;
                                             }
                                         }
                                     } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
-                                        if (freeFares[i].unplug_enable.value !== 'undefined') {
+                                        if (typeof freeFares[i].unplug_enable.value !== 'undefined') {
                                             unplugValue = freeFares[i].unplug_enable.value;
                                         }
                                     }
                                 }
                             }
                             if (verify === 0) {
-                                caseFree = ' when true then 0 '; //to improve
+                                caseFree = ' WHEN true THEN 0 '; //to improve
                             }
 
-                            var unplugSelect = "";
                             var unplugCase = "";
                             var unplugCase2 = "";
-                            var unplugCase3 = "";
 
                             if(unplugValue>0) {
-                                unplugCase = ", unplug_enable, case when unplug_enable then " + unplugValue + " else 0 end as unplug_value ";
+                                unplugCase = ", unplug_enable, CASE WHEN unplug_enable THEN " + unplugValue + " ELSE 0 END AS unplug_value ";
                                 unplugCase2 = ", cars_bonus.unplug_enable ";
-                                unplugCase3 = ",unplug ";
-                                unplugSelect = ", json_build_object('value', unplug_value) as unplug ";
                             }
 
                             var query = '', params = [], queryString = '', queryRecursive = '', querySelect = '', isSingle = false, bonusSelect = '';
 
-                            var freeCarCond = " AND status = 'operative' AND active IS TRUE AND busy IS FALSE AND hidden IS FALSE ";
-                            freeCarCond += " AND plate NOT IN (SELECT car_plate FROM reservations WHERE active is TRUE) ";
-                            // select cars.*, json_build_object('id',cars.fleet_id,'label',fleets.name) as fleet FROM cars left join fleets on cars.fleet_id = fleets.id;
+                            var freeCarCond = " AND " +
+                                "status = 'operative' AND " +
+                                "active IS TRUE AND " +
+                                "busy IS FALSE AND " +
+                                "hidden IS FALSE AND " +
+                                "plate NOT IN (" +
+                                    "SELECT car_plate FROM reservations WHERE active IS TRUE) ";
 
                             var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) as fleets ";
                             var fleetsJoin = " left join fleets on cars.fleet_id = fleets.id ";
 
                             var bonusJoin = " LEFT JOIN ( " +
-                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end as nouse_bool " + unplugCase + 
-                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 + 
-                                "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) as cars_bonus ON cars.plate = cars_bonus.car_plate ";
+                                "SELECT car_plate, nouse_bool as nouse_value, case when nouse_bool != 0 then TRUE else FALSE end AS nouse_bool " + unplugCase +
+                                "FROM (SELECT car_plate, case " + caseFree + " else 0 end as nouse_bool " + unplugCase2 +
+                                "FROM cars LEFT JOIN cars_bonus ON cars.plate = cars_bonus.car_plate) as cars_free) AS cars_bonus ON cars.plate = cars_bonus.car_plate ";
 
                             if (typeof req.params.plate === 'undefined') {
                                 if (typeof req.params.status !== 'undefined') {
@@ -292,26 +317,33 @@ module.exports = {
 
                                 queryString += freeCarCond;
                                 if (typeof req.params.lat !== 'undefined' && typeof req.params.lon !== 'undefined') {
-                                    querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus";
-                                    queryRecursive += 'with recursive tab(plate,lon,lat,soc,fleet_id,dist,bonus) as (';
-                                    queryString += ' ) select plate,lon,lat,soc,fleet_id,round(dist)as dist,bonus' + unplugCase3 + ' from tab where dist < $3::int order by dist asc';
+                                    //querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist, json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus";
+                                    querySelect += ",ST_Distance_Sphere(ST_SetSRID(ST_MakePoint(cars.longitude, cars.latitude), 4326),ST_SetSRID(ST_MakePoint($2,$1), 4326)) as dist ";
+                                    queryRecursive += 'WITH RECURSIVE tab(plate,lon,lat,soc,fleet_id,dist,bonus) AS (';
+                                    queryString += ' ) SELECT plate,lon,lat,soc,fleet_id,round(dist) as dist,bonus FROM tab WHERE dist < $3::int ORDER BY dist ASC';
                                     params[0] = req.params.lat;
                                     params[1] = req.params.lon;
                                     params[2] = req.params.radius || defaultDistance;
-                                } else {
-                                    bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
                                 }
-                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id" + bonusSelect + " " + querySelect + " " + unplugSelect + "  FROM cars " + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
+
+                                bonusSelect = ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
+                                if(unplugValue>0) {
+                                    bonusSelect = ", json_build_array(json_build_object('type','unplug', 'value', unplug_value ,'status', cars_bonus.unplug_enable)) as bonus ";
+                                }
+                                query = queryRecursive + "SELECT cars.plate,cars.longitude as lon,cars.latitude as lat,cars.battery as soc, cars.fleet_id " + querySelect + " " + bonusSelect + " FROM cars " + bonusJoin + " WHERE cars.fleet_id <= 100 " + queryString;
                             } else {
                                 // single car
                                 bonusSelect += ", json_build_array(json_build_object('type','nouse', 'value', nouse_value ,'status', cars_bonus.nouse_bool)) as bonus ";
-                                query = "SELECT cars.*" + fleetsSelect + bonusSelect + unplugSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
+                                if(unplugValue>0) {
+                                    bonusSelect += ", json_build_array(json_build_object('type','unplug', 'value', unplug_value ,'status', cars_bonus.unplug_enable)) as bonus ";
+                                }
+                                query = "SELECT cars.* " + fleetsSelect + bonusSelect + " FROM cars " + fleetsJoin + bonusJoin + " WHERE plate = $1";
                                 params = [req.params.plate];
                                 isSingle = true;
                             }
 
                             /*if(!isSingle){
-                             query += freeCarCond; 
+                             query += freeCarCond;
                              }*/
                             //console.log('Query ', query);
                             client.query(
@@ -798,7 +830,7 @@ module.exports = {
                     } else {
                         penalty_ok = "NULL";
                     }
-					
+
 					if ((typeof json_parsed.amount !== 'undefined')) {
                         amount = json_parsed.amount;
 						if (isNaN(amount)) {
@@ -811,7 +843,7 @@ module.exports = {
                     } else {
 						error = "amount is not valid.";
                     }
-					
+
 					if ((typeof json_parsed.complete !== 'undefined')) {
 						if(typeof(json_parsed.complete) === "boolean"){
 							complete = json_parsed.complete;
@@ -1592,10 +1624,10 @@ module.exports = {
 
 /* EXTRA FUNCTIONS */
 /**
- * outputs json response 
+ * outputs json response
  * @param  array   req  request
  * @param  array   res  response
- * @param  string reason 
+ * @param  string reason
  * @param  array data   data to send
  */
 function sendOutJSON(res, status, reason, data) {
