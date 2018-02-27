@@ -130,10 +130,10 @@ module.exports = {
                                             }
                                             verify++;
                                         }
-                                    }
-                                } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
-                                    if (typeof freeFares[i].unplug_enable.value !== 'undefined') {
-                                        unplugValue = freeFares[i].unplug_enable.value;
+                                    } else if (freeFares[i].car.type === 'unplug') {
+                                        if (typeof freeFares[i].car.value !== 'undefined') {
+                                            unplugValue = freeFares[i].car.value;
+                                        }
                                     }
                                 }
                             }
@@ -271,12 +271,12 @@ module.exports = {
                                                 }
                                                 verify++;
                                             }
+                                        } else if (freeFares[i].car.type === 'unplug') {
+                                            if (typeof freeFares[i].car.value !== 'undefined') {
+                                                unplugValue = freeFares[i].car.value;
+                                            }
                                         }
-                                    } else if (typeof freeFares[i].unplug_enable !== 'undefined') {
-                                        if (typeof freeFares[i].unplug_enable.value !== 'undefined') {
-                                            unplugValue = freeFares[i].unplug_enable.value;
-                                        }
-                                    }
+                                    } 
                                 }
                             }
                             if (verify === 0) {
