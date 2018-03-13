@@ -477,14 +477,14 @@ process.on('uncaughtException', function (err) {
 
 
 	server = restify.createServer({
-	    certificate: fs.readFileSync('ssl/server.cer'),
-	    key: fs.readFileSync('ssl/server.key'),
-        ca:  fs.readFileSync('ssl/ca.cer'),
-        requestCert:        true,
-        rejectUnauthorized: true,
-	    name: 'Sharengo',
-	    formatters: responseFormatter,
-	    log: log
+            certificate: fs.readFileSync('ssl/server.cer'),
+            key: fs.readFileSync('ssl/server.key'),
+            ca:  fs.readFileSync('ssl/ca.cer'),
+            requestCert:        false,
+            rejectUnauthorized: false,
+            name: 'Sharengo',
+            formatters: responseFormatter,
+            log: log
 	});
     log.info('Created standard server');
 
