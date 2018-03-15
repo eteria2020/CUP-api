@@ -358,7 +358,7 @@ module.exports = {
 
                             var params = [];
 
-                            console.log('Query4 ', query4);
+                            //console.log('Query4 ', query4);
                             client.query(
                                     query4,
                                     params,
