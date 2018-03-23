@@ -197,7 +197,7 @@ var funcs = require('./inc/restFunctions');
                                             if(reason.rows.length<=0) {
                                                 return fn(null, result.rows[0]);
                                             }else{
-                                            	result.rows[0].disabled_reason =reason.rows[0].reason;
+                                            	result.rows[0].disabled_reason =reason.rows;
                                                 return fn(null, result.rows[0]);
                                             }
                                         }
