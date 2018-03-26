@@ -44,12 +44,12 @@ var expo = {
 	port: standardPort,
 	validator: validator,
 	defaultDistance: defaultDistance
-}
+};
 exports.expo = expo;
 
-fs.existsSync(logPath) || fs.mkdirSync(logPath)
+fs.existsSync(logPath) || fs.mkdirSync(logPath);
 
-var accessLogStream = fs.createWriteStream(logPath + 'webservices_access.log', {flags: 'a'})
+var accessLogStream = fs.createWriteStream(logPath + 'webservices_access.log', {flags: 'a'});
 
 var funcs = require('./inc/restFunctions');
 
@@ -101,7 +101,7 @@ var funcs = require('./inc/restFunctions');
 		                return fn(null, 1);
 		            }else if ( typeof result.rows[0] !== 'undefined' && !result.rows[0].enabled) {
 		                return fn(null, 2);
-		            }else if ( result.rows[0].password != pass) {
+		            }else if ( result.rows[0].password !== pass) {
 		                return fn(null, 3);
 		            }else{
 						client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled,\'0\' as bonus FROM customers WHERE LOWER(email)=$1 AND password=$2 AND enabled = true LIMIT 1',
@@ -244,7 +244,7 @@ var funcs = require('./inc/restFunctions');
 	                if (!user) {
 	                    return done(null, false);
 	                }
-	                if (user.password != password) {
+	                if (user.password !== password) {
 	                	console.log('passport 6');
 	                    return done(null, false);
 	                }
@@ -252,7 +252,7 @@ var funcs = require('./inc/restFunctions');
 	                console.log('\n\n UTENTE : ' + user.email);
 	                console.log(' PASSWORD : ' + user.password + '\n\n');
 	                return done(null, user);
-	            })
+	            });
 	        });
 	    }
 	));
@@ -284,7 +284,7 @@ var funcs = require('./inc/restFunctions');
 	                if (!user) {
 	                    return done(null, false);
 	                }
-	                if (user.password != password) {
+	                if (user.password !== password) {
 	                	console.log('passportiOS 6');
 	                    return done(null, false);
 	                }
@@ -292,7 +292,7 @@ var funcs = require('./inc/restFunctions');
 	                console.log('\n\n UTENTE : ' + user.email);
 	                console.log(' PASSWORD : ' + user.password + '\n\n');
 	                return done(null, user);
-	            })
+	            });
 	        });
 	    }
 	));
@@ -316,7 +316,7 @@ function registerServer(server) {
 	server.use(restify.throttle({
 	    burst: 200,
 	    rate: 200,
-	    ip: true,
+	    ip: true
 	    /*overrides: {
 		    '192.168.1.1': {
 		      rate: 0,        // unlimited
@@ -540,7 +540,7 @@ process.on('uncaughtException', function (err) {
 	                        time: Date.now() / 1000 | 0
 	                    };
 	                } else {
-	                	if(res.statusCode == 403 || res.statusCode == 404){
+	                	if(res.statusCode === 403 || res.statusCode === 404){
 	                		body = {
 	                			status: res.statusCode,
 		                        code: body.message
@@ -564,14 +564,14 @@ process.on('uncaughtException', function (err) {
 
 
 	server = restify.createServer({
-	    certificate: fs.readFileSync('ssl/server.cer'),
-	    key: fs.readFileSync('ssl/server.key'),
-        ca:  fs.readFileSync('ssl/ca.cer'),
-        requestCert:        true,
-        rejectUnauthorized: true,
-	    name: 'Sharengo',
-	    formatters: responseFormatter,
-	    log: log
+            certificate: fs.readFileSync('ssl/server.cer'),
+            key: fs.readFileSync('ssl/server.key'),
+            ca:  fs.readFileSync('ssl/ca.cer'),
+            requestCert:        false,
+            rejectUnauthorized: false,
+            name: 'Sharengo',
+            formatters: responseFormatter,
+            log: log
 	});
     log.info('Created standard server');
 
