@@ -217,7 +217,7 @@ var funcs = require('./inc/restFunctions');
 	/**
 	 * node-passport basic strategy auth
 	 */
-	passport.use('basic',new BasicStrategy({},
+	passport.use('strict',new BasicStrategy({},
 	    function(username, password, done) {
 	    	username = username.trim().toLowerCase();
 	    	console.log(username,password);
@@ -257,7 +257,7 @@ var funcs = require('./inc/restFunctions');
 	    }
 	));
 	
-	passport.use('new', new BasicStrategy({},
+	passport.use('loose', new BasicStrategy({},
 	    function(username, password, done) {
 	    	username = username.trim().toLowerCase();
 	    	console.log(username,password);
@@ -376,7 +376,7 @@ process.on('uncaughtException', function (err) {
 	// user
 	server.get(
 		'/v2/user',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.getUser
 	);
 	
@@ -384,7 +384,7 @@ process.on('uncaughtException', function (err) {
 	// useriOS
 	server.get(
 		'/v3/user',
-		passport.authenticate('new', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getUser
 	);
 
@@ -392,95 +392,95 @@ process.on('uncaughtException', function (err) {
 	// cars
 	server.get(
 		'/v2/cars',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCars
 	);
 	server.get(
 		'/v3/cars',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCarsLight
 	);
 
 	server.get(
 		'/v3/cars/:plate',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCarsLight
 	);
 	server.get(
 		'/v2/cars/:plate',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCars
 	);
 
     server.put(
         '/v2/cars/:plate',
-        passport.authenticate('basic', {session: false}),
+        passport.authenticate('strict', {session: false}),
         funcs.putCars
     );
 
 	// reservations
 	server.get(
 		'/v2/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getReservations
 	);
 	server.get(
 		'/v2/reservations/:reservation',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getReservations
 	);
 	server.post(
 		'/v2/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.postReservations
 	);
 	server.del(
 		'/v2/reservations/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.delReservations
 	);
 
 	server.get(
 		'/v2/archive/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.getArchiveReservations
 	);
 
 	// trips
 	server.get(
 		'/v2/trips',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.get(
 		'/v2/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.get(
 		'/v2/trips/current',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.put(
 		'/v2/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.putTrips
 	);
 	//v3
 	server.get(
 		'/v3/trips',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	server.get(
 		'/v3/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	server.get(
 		'/v3/trips/current',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	
@@ -493,26 +493,26 @@ process.on('uncaughtException', function (err) {
 	// pois
 	server.get(
 		'/v2/pois',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getPois
 	);
 	
 	//safo
 	server.post(
 		'/v2/getLastTrips',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getLastTrips
 	);
 	server.put(
 		'/v2/chargePenalty',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.chargePenalty
 	);
 	
 	//point
 	server.post(
 		'/v2/postPoint/',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.postPoint
 	);
 
