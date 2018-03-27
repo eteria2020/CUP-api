@@ -125,12 +125,99 @@ var funcs = require('./inc/restFunctions');
 	        log.error('End validation', user, pass);
 	    });
 	}
+	
+	/**
+	 * Validate user agains postgres
+	 * @param  urlencoded string   	user
+	 * @param  md5 string 		   	pass
+	 * @param  function 			fn  callback
+	 * @return array        		error, result
+	 */
+	function validateUserDisabled(user, pass, fn) {
+	    pg.connect(conString, function(err, client, done) {
+	    	done();
+	        if (err) {
+	            console.error('error fetching users from pool', err);
+	            return fn(null, null);
+	        }
+
+	        if(
+	        	!validator.isEmail(user) ||
+	        	!validator.isAlphanumeric(pass) ||
+	        	!validator.isByteLength(pass,32,32)
+	        ){
+	        	console.error(Date.now(),'\n+++++++++++++++++\nvalidation error\n',user,pass);
+	        	console.log(validator.isEmail(user),validator.isAlphanumeric(pass),validator.isByteLength(pass,32,32));
+                log.error('Validation error %s,%s',user,pass);
+	            return fn(null, null);
+	        }
+
+	        client.query('SELECT id,enabled,password FROM customers WHERE LOWER(email)=$1 LIMIT 1',
+	        	[user],
+	        	function(err, result) {
+	            	// release the client back to the pool
+		            done();
+
+		            if (err) {
+	                	console.error('error running query', err);
+                        log.error('Error running query', err);
+		                return fn(null, null);
+		            }else if ( result.rows.length<=0) {
+		                return fn(null, 1);
+		            }/*else if ( typeof result.rows[0] !== 'undefined' && !result.rows[0].enabled) {
+		                return fn(null, 2);
+		            }*/else if ( result.rows[0].password != pass) {
+		                return fn(null, 3);
+		            }else{
+						client.query('SELECT id,name,password,surname,gender,country,province,town,address,zip_code,phone,mobile,pin,discount_rate,email,card_code,enabled,\'0\' as bonus FROM customers WHERE LOWER(email)=$1 AND password=$2 LIMIT 1',
+				        	[user, pass],
+				        	function(err, result) {
+				            	// release the client back to the pool
+					            done();
+
+					            if (err) {
+					                console.error('error running query', err);
+			                        log.error('Error running query', err);
+					                return fn(null, null);
+					            }
+					            if(result.rows[0].enabled) {
+
+                                    return fn(null, result.rows[0]);
+                                }else{
+                                    client.query('select reason from customer_deactivations where customer_id=$1 and end_ts is null',
+                                        [result.rows[0].id],
+                                        function(err, reason) {
+                                            // release the client back to the pool
+                                            done();
+                                            if (err) {
+                                                console.error('error running query', err);
+                                                log.error('Error running query', err);
+                                                return fn(null, null);
+                                            }
+                                            if(reason.rows.length<=0) {
+                                                return fn(null, result.rows[0]);
+                                            }else{
+                                            	result.rows[0].disabled_reason =reason.rows;
+                                                return fn(null, result.rows[0]);
+                                            }
+                                        }
+                                    );
+								}
+				        	}
+				        );
+		            }
+	        	}
+	        );
+	        console.log('End validation', user, pass);
+	        log.error('End validation', user, pass);
+	    });
+	}
 
 
 	/**
 	 * node-passport basic strategy auth
 	 */
-	passport.use(new BasicStrategy({},
+	passport.use('strict',new BasicStrategy({},
 	    function(username, password, done) {
 	    	username = username.trim().toLowerCase();
 	    	console.log(username,password);
@@ -170,12 +257,12 @@ var funcs = require('./inc/restFunctions');
 	    }
 	));
 	
-	passportiOS.use(new BasicStrategy({},
+	passport.use('loose', new BasicStrategy({},
 	    function(username, password, done) {
 	    	username = username.trim().toLowerCase();
 	    	console.log(username,password);
 	        process.nextTick(function() {
-	            validateUser(username, password, function(err, user) {
+	            validateUserDisabled(username, password, function(err, user) {
 	                if (err) {
 	               		return done(err);
 	                }
@@ -217,7 +304,7 @@ var funcs = require('./inc/restFunctions');
 function registerServer(server) {
 
 	server.use(passport.initialize());
-	server.use(passportiOS.initialize());
+	//server.use(passportiOS.initialize());
 
 	//server.use(restify.acceptParser(server.acceptable));
 	//server.use(restify.authorizationParser());
@@ -289,7 +376,7 @@ process.on('uncaughtException', function (err) {
 	// user
 	server.get(
 		'/v2/user',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.getUser
 	);
 	
@@ -297,7 +384,7 @@ process.on('uncaughtException', function (err) {
 	// useriOS
 	server.get(
 		'/v3/user',
-		passportiOS.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getUser
 	);
 
@@ -305,95 +392,95 @@ process.on('uncaughtException', function (err) {
 	// cars
 	server.get(
 		'/v2/cars',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCars
 	);
 	server.get(
 		'/v3/cars',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCarsLight
 	);
 
 	server.get(
 		'/v3/cars/:plate',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCarsLight
 	);
 	server.get(
 		'/v2/cars/:plate',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getCars
 	);
 
     server.put(
         '/v2/cars/:plate',
-        passport.authenticate('basic', {session: false}),
+        passport.authenticate('strict', {session: false}),
         funcs.putCars
     );
 
 	// reservations
 	server.get(
 		'/v2/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getReservations
 	);
 	server.get(
 		'/v2/reservations/:reservation',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getReservations
 	);
 	server.post(
 		'/v2/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.postReservations
 	);
 	server.del(
 		'/v2/reservations/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.delReservations
 	);
 
 	server.get(
 		'/v2/archive/reservations',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.getArchiveReservations
 	);
 
 	// trips
 	server.get(
 		'/v2/trips',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.get(
 		'/v2/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.get(
 		'/v2/trips/current',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTrips
 	);
 	server.put(
 		'/v2/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.putTrips
 	);
 	//v3
 	server.get(
 		'/v3/trips',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	server.get(
 		'/v3/trips/:id',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	server.get(
 		'/v3/trips/current',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getTripsNew
 	);
 	
@@ -406,26 +493,26 @@ process.on('uncaughtException', function (err) {
 	// pois
 	server.get(
 		'/v2/pois',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('loose', {session: false}),
 		funcs.getPois
 	);
 	
 	//safo
 	server.post(
 		'/v2/getLastTrips',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.getLastTrips
 	);
 	server.put(
 		'/v2/chargePenalty',
-		//passport.authenticate('basic', {session: false}),
+		//passport.authenticate('strict', {session: false}),
 		funcs.chargePenalty
 	);
 	
 	//point
 	server.post(
 		'/v2/postPoint/',
-		passport.authenticate('basic', {session: false}),
+		passport.authenticate('strict', {session: false}),
 		funcs.postPoint
 	);
 

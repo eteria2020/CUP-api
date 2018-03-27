@@ -45,8 +45,8 @@ module.exports = {
                             }
 
                             if (user_lat != '' && user_lon != '') {
-                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
-                                var paramsLoc = [req.user.id, user_lat, user_lon, "login", null];
+                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
+                                var paramsLoc = [req.user.id, user_lat, user_lon, "login", null,req.connection.remoteAddress,req.connection.remotePort];
                                 client.query(sqlLoc,
                                         paramsLoc,
                                         function (err, result) {
@@ -157,7 +157,7 @@ module.exports = {
                             "active IS TRUE AND " +
                             "busy IS FALSE AND " +
                             "hidden IS FALSE AND " +
-                            "plate NOT IN (" + 
+                            "plate NOT IN (" +
                                 "SELECT car_plate FROM reservations WHERE active is TRUE) ";
 
                         var fleetsSelect = ", json_build_object('id',cars.fleet_id,'label',fleets.name) AS fleets ";
@@ -276,7 +276,7 @@ module.exports = {
                                                 unplugValue = freeFares[i].car.value;
                                             }
                                         }
-                                    } 
+                                    }
                                 } // end loop
                             }
 
@@ -329,7 +329,7 @@ module.exports = {
                                 "CASE WHEN unplug_val>0 THEN unplug_val WHEN nouse_val>0 THEN nouse_val ELSE 0 END AS bonus_value, " +
                                 "CASE WHEN unplug_val>0 OR nouse_val>0 THEN true ELSE false END AS bonus_status " +
                                 "FROM (" +
-                                 query1 + 
+                                 query1 +
                                 ") AS cars_free ";
 
                             var query3 = "SELECT " +
@@ -638,8 +638,8 @@ module.exports = {
                                                         }
 
                                                         if (user_lat != '' && user_lon != '') {
-                                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
-                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + " trip", plate];
+                                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
+                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + "open trip", plate,req.connection.remoteAddress,req.connection.remotePort];
                                                             client.query(sqlLoc,
                                                                     paramsLoc,
                                                                     function (err, result) {
@@ -1432,8 +1432,8 @@ module.exports = {
                                                                             }
 
                                                                             if (user_lat != '' && user_lon != '') {
-                                                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5 )";
-                                                                                var paramsLoc = [req.user.id, user_lat, user_lon, "create reservation", req.params.plate];
+                                                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
+                                                                                var paramsLoc = [req.user.id, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort];
                                                                                 client.query(sqlLoc,
                                                                                         paramsLoc,
                                                                                         function (err, result) {
@@ -1589,12 +1589,12 @@ module.exports = {
                                     next.ifError(err);
                                 }
                                 if (user_lat != '' && user_lon != '') {
-                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate) values ($1,$2, $3, $4 , now(), $5)";
+                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
                                     var plate = '';
                                     if (typeof result.rows[0].car_plate !== 'undefined' && result.rows[0].car_plate != '') {
                                         plate = result.rows[0].car_plate;
                                     }
-                                    var paramsLoc = [req.user.id, user_lat, user_lon, "delete reservation ", plate];
+                                    var paramsLoc = [req.user.id, user_lat, user_lon, "delete reservation ", plate,req.connection.remoteAddress,req.connection.remotePort];
                                     client.query(sqlLoc,
                                             paramsLoc,
                                             function (err, result) {
