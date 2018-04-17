@@ -519,6 +519,7 @@ module.exports = {
                                                                                     res_succ_trip = {"is_vehicle_sharing": is_vehicle_sharing};
                                                                                 }
                                                                                 outJson = [res_run, res_prec_trip, res_succ_trip];
+																				console.log('getLastTrips ok');
                                                                                 sendOutJSON(res, 200, outTxt, outJson);
                                                                                 done();
                                                                             }
@@ -710,9 +711,9 @@ module.exports = {
                 var rus_id = -1;
                 var violation_request_type = -1;
                 var violation_status = "N";
-                var email_sent_timestamp = "NULL";
-                var email_sent_ok = "NULL";
-                var penalty_ok = "NULL";
+                var email_sent_timestamp = null;
+                var email_sent_ok = null;
+                var penalty_ok = null;
                 var amount = -1;
                 var complete = false;
 
@@ -821,27 +822,37 @@ module.exports = {
                         error = "violation_status is not valid.";
                     }
 
-                    if (!isNaN(json_parsed.email_sent_timestamp)) {
-                        if (json_parsed.email_sent_timestamp != "") {
-                            var test_date = new Date(json_parsed.email_sent_timestamp);
-                            if (isNaN(test_date.getDate())) {
-                                email_sent_timestamp = "NULL";
-                            } else {
-                                email_sent_timestamp = '"' + json_parsed.email_sent_timestamp + '"';
-                            }
-                        }
+                    if ((json_parsed.email_sent_timestamp !== null) && (violation_description !== "null")){
+						try {
+							timestamp = json_parsed.email_sent_timestamp;
+							var test_date = new Date(timestamp);
+							email_sent_timestamp = test_date.toISOString().replace(/T/, ' ').replace(/\..+/, '');
+
+							if ((typeof email_sent_timestamp !== 'undefined')) {
+								if (email_sent_timestamp.length <= 0) {
+									//isempty
+								}
+							} else {
+								//isempty
+							}
+						} catch (err) {
+							//isempty
+						}
+						if (email_sent_timestamp !== null) {
+							email_sent_timestamp = new Date(json_parsed.email_sent_timestamp);
+						}
                     }
 
                     if ((typeof json_parsed.email_sent_ok !== 'undefined')) {
                         email_sent_ok = json_parsed.email_sent_ok;
                     } else {
-                        email_sent_ok = "NULL";
+                        email_sent_ok = null;
                     }
 
                     if ((typeof json_parsed.penalty_ok !== 'undefined')) {
                         penalty_ok = json_parsed.penalty_ok;
                     } else {
-                        penalty_ok = "NULL";
+                        penalty_ok = null;
                     }
 
 					if ((typeof json_parsed.amount !== 'undefined')) {
@@ -873,9 +884,24 @@ module.exports = {
                 var outJson = {"penalty_loading_result": "false"};
                 if (error == "no_error") {
                     //inizio check coerenza
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = '" + vehicle_license_plate + "') as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = '" + customer_id + "') as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "') as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = '" + trip_id + "' AND customer_id = '" + customer_id + "') as trip_coherent, (SELECT id FROM safo_penalty where customer_id='" + customer_id + "' AND violation_category='" + violation_category + "' AND trip_id='" + trip_id + "' AND violation_timestamp='" + violation_timestamp + "' AND violation_authority='" + violation_authority + "' AND violation_number='" + violation_number + "' AND violation_description='" + violation_description + "' AND rus_id='" + rus_id + "' AND violation_request_type='" + violation_request_type + "' order by id desc limit 1) as penalty_exist;";
+					
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where customer_id=$6 AND violation_category=$7 AND trip_id=$8 AND violation_timestamp=$9 AND violation_authority=$10 AND violation_number=$11 AND violation_description=$12 AND rus_id=$13 AND violation_request_type=$14 order by id desc limit 1) as penalty_exist;";
                     client.query(
                             query_coherent,
+							[vehicle_license_plate,
+							customer_id,
+							trip_id,
+							trip_id,
+							customer_id,
+							customer_id,
+							violation_category,
+							trip_id,
+							new Date(violation_timestamp),
+							violation_authority,
+							violation_number,
+							violation_description,
+							rus_id,
+							violation_request_type],
                             function (err_co, result_co) {
                                 if (err_co) {
                                     console.log('chargePenalty', req.connection.remoteAddress, 'coherent check query error', err_co);
@@ -894,6 +920,7 @@ module.exports = {
                                         }
                                         if ((!result_co.rows[0]['plate_exist'])&&(vehicle_license_plate!="no_plate")) {
                                             //err_co = "plate does not exist";
+											vehicle_license_plate = null;
                                         }
                                         if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
                                             err_co = "customer does not exist";
@@ -907,9 +934,29 @@ module.exports = {
                                         if (err_co == "no error") {
 											if (penalty_exist > 0) {
 												//inizio update
-												var query = "UPDATE safo_penalty SET insert_ts='" + insert_ts + "', charged=" + charged + ", customer_id=" + customer_id + ", vehicle_fleet_id=" + vehicle_fleet_id + ", violation_category=" + violation_category + ", trip_id=" + trip_id + ", car_plate='" + vehicle_license_plate + "', violation_timestamp='" + violation_timestamp + "', violation_authority='" + violation_authority + "', violation_number='" + violation_number + "', violation_description='" + violation_description + "', rus_id=" + rus_id + ", violation_request_type=" + violation_request_type + ", violation_status='" + violation_status + "', email_sent_timestamp=" + email_sent_timestamp + ", email_sent_ok=" + email_sent_ok + ", penalty_ok=" + penalty_ok + ", amount=" + amount + ", complete=" + complete + " WHERE id=" + penalty_exist + ";";
+												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19 WHERE id=$20;";
 												client.query(
 													query,
+													[insert_ts,
+													charged,
+													customer_id,
+													vehicle_fleet_id,
+													violation_category,
+													trip_id,
+													vehicle_license_plate,
+													new Date(violation_timestamp),
+													violation_authority,
+													violation_number,
+													violation_description,
+													rus_id,
+													violation_request_type,
+													violation_status,
+													email_sent_timestamp,
+													email_sent_ok,
+													penalty_ok,
+													amount,
+													complete,
+													penalty_exist],
 													function (err, result) {
 														if (err) {
 															console.log('chargePenalty', req.connection.remoteAddress, 'update error', err);
@@ -930,9 +977,28 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, '" + insert_ts + "', " + charged + ", NULL, " + customer_id + ", " + vehicle_fleet_id + ", " + violation_category + ", " + trip_id + ", '" + vehicle_license_plate + "', '" + violation_timestamp + "', '" + violation_authority + "', '" + violation_number + "', '" + violation_description + "', " + rus_id + ", " + violation_request_type + ", '" + violation_status + "', " + email_sent_timestamp + ", " + email_sent_ok + ", " + penalty_ok + ", " + amount + ", " + complete + ");";
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
 												client.query(
 													query,
+													[insert_ts,
+													charged,
+													customer_id,
+													vehicle_fleet_id,
+													violation_category,
+													trip_id,
+													vehicle_license_plate,
+													new Date(violation_timestamp),
+													violation_authority,
+													violation_number,
+													violation_description,
+													rus_id,
+													violation_request_type,
+													violation_status,
+													new Date(email_sent_timestamp),
+													email_sent_ok,
+													penalty_ok,
+													amount,
+													complete],
 													function (err, result) {
 														if (err) {
 															console.log('chargePenalty', req.connection.remoteAddress, 'insert error', err);
