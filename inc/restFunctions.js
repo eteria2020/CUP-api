@@ -822,16 +822,32 @@ module.exports = {
                         error = "violation_status is not valid.";
                     }
 
-                    if (!isNaN(json_parsed.email_sent_timestamp)) {
-                        if (json_parsed.email_sent_timestamp != "") {
-                            var test_date = new Date(json_parsed.email_sent_timestamp);
-                            if (isNaN(test_date.getDate())) {
-                                email_sent_timestamp = null;
-                            } else {
-                                email_sent_timestamp = json_parsed.email_sent_timestamp;
-                            }
-                        }
-                    }
+                    if ((json_parsed.email_sent_timestamp !== null) && (violation_description !== "null")){
+						console.log('email sent ts try');
+						try {
+							timestamp = json_parsed.email_sent_timestamp;
+							var test_date = new Date(timestamp);
+							email_sent_timestamp = test_date.toISOString().replace(/T/, ' ').replace(/\..+/, '');
+							console.log(email_sent_timestamp);
+							if ((typeof email_sent_timestamp !== 'undefined')) {
+								if (email_sent_timestamp.length <= 0) {
+									//isempty
+									console.log('email_sent_timestamp if1');
+								}
+							} else {
+								//isempty
+								console.log('email_sent_timestamp if2');
+							}
+						} catch (err) {
+							//isempty
+							console.log('email_sent_timestamp err');
+						}
+						if (email_sent_timestamp !== null) {
+							email_sent_timestamp = new Date(json_parsed.email_sent_timestamp);
+						}
+                    }else{
+						console.log('email sent ts else try');
+					}
 
                     if ((typeof json_parsed.email_sent_ok !== 'undefined')) {
                         email_sent_ok = json_parsed.email_sent_ok;
@@ -984,7 +1000,7 @@ module.exports = {
 													rus_id,
 													violation_request_type,
 													violation_status,
-													email_sent_timestamp,
+													new Date(email_sent_timestamp),
 													email_sent_ok,
 													penalty_ok,
 													amount,
