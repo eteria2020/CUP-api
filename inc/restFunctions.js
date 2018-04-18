@@ -387,7 +387,10 @@ module.exports = {
                                             outTxt = 'No cars found';
                                         }
 
-                                        if (user_lat != '' && user_lon != '') {
+
+
+                                        sendOutJSON(res, 200, outTxt, outJson);
+                                        if (user_lat != '' && user_lon != ''&& callingApp != '') {
                                             var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
                                             var paramsLoc = [0, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
                                             client.query(sqlLoc,
@@ -401,8 +404,6 @@ module.exports = {
                                                 }
                                             );
                                         }
-
-                                        sendOutJSON(res, 200, outTxt, outJson);
                                     }
                             );
                         }
