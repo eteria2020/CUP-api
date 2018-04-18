@@ -230,6 +230,17 @@ module.exports = {
                     console.log('Errore getCars connect', err);
                     next.ifError(err);
                 }
+
+                let user_lat = '';
+                let user_lon = '';
+                let callingApp = '';
+
+                if (typeof req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined' && typeof req.params.callingApp !== 'undefined') {
+                    user_lat = req.params.user_lat;
+                    user_lon = req.params.user_lon;
+                    callingApp = req.params.callingApp ;
+                }
+
                 client.query(
                         "SELECT conditions as conditions FROM free_fares WHERE active = TRUE",
                         function (err, result) {
@@ -375,6 +386,22 @@ module.exports = {
                                         } else {
                                             outTxt = 'No cars found';
                                         }
+
+                                        if (user_lat != '' && user_lon != '') {
+                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
+                                            var paramsLoc = [0, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                            client.query(sqlLoc,
+                                                paramsLoc,
+                                                function (err, result) {
+                                                    done();
+                                                    if (err) {
+                                                        console.log('Errore getCarsLight insert location', err);
+                                                        next.ifError(err);
+                                                    }
+                                                }
+                                            );
+                                        }
+
                                         sendOutJSON(res, 200, outTxt, outJson);
                                     }
                             );
