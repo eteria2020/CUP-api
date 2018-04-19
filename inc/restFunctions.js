@@ -668,7 +668,7 @@ module.exports = {
 
                                                         if (user_lat != '' && user_lon != '') {
                                                             var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
-                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + "open trip", plate,req.connection.remoteAddress,req.connection.remotePort];
+                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + " trip", plate,req.connection.remoteAddress,req.connection.remotePort];
                                                             client.query(sqlLoc,
                                                                     paramsLoc,
                                                                     function (err, result) {

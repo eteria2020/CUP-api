@@ -45,7 +45,10 @@ User.prototype.checkApi = function getApi(tries){
                     console.log("End check api at " +  new Date());
                 } else {
                     console.log("Error calling api status: "+response.status + " tries: " +tries);
-                    setTimeout(()=> {this.checkApi(tries-1)},2000);
+                    if(tries==1) {
+                        console.log(response);
+                    }
+                    setTimeout(()=> {this.checkApi(tries-1)},1000);
                 }
             })
             .catch(error => {
