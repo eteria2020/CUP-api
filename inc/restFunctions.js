@@ -231,9 +231,9 @@ module.exports = {
                     next.ifError(err);
                 }
 
-                let user_lat = '';
-                let user_lon = '';
-                let callingApp = '';
+                var user_lat = '';
+                var user_lon = '';
+                var callingApp = '';
 
                 if (typeof req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined' && typeof req.params.callingApp !== 'undefined') {
                     user_lat = req.params.user_lat;
