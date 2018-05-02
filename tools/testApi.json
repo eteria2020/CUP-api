@@ -1,0 +1,9 @@
+{
+ "apps" : [{
+	"name"	: "testApi",
+	"script": "testApi.js",
+	"merge_logs" : true,
+	"error_file" : "/var/log/services/testApi_error.log",
+	"out_file" : "/var/log/services/testApi_out.log"
+ }]
+}
