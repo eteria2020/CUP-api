@@ -515,6 +515,12 @@ process.on('uncaughtException', function (err) {
 		passport.authenticate('strict', {session: false}),
 		funcs.postPoint
 	);
+	//configuration
+	server.get(
+		'/v3/config',
+		//passport.authenticate('loose', {session: false}),
+		funcs.getConfig
+	);
 
 /* / routes */
 }
