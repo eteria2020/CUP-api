@@ -1433,51 +1433,7 @@ module.exports = {
         }
         return next();
     },
-    /**
-     * get pois
-     * @param  array   req  request
-     * @param  array   res  response
-     * @param  function next handler
-     */
-    getPois: function (req, res, next) {
-        if (sanitizeInput(req, res)) {
-            pg.connect(conString, function (err, client, done) {
-
-                if (err) {
-                    done();
-                    console.log('Errore getPois connect', err);
-                    next.ifError(err);
-                }
-
-                var query = '', params = [], queryString = '', isSingle = false;
-
-                query = "SELECT * FROM pois WHERE true"
-
-
-                client.query(
-                        query,
-                        params,
-                        function (err, result) {
-                            done();
-                            if (err) {
-                                console.log('Errore getPois select', err);
-                                next.ifError(err);
-                            }
-                            var outTxt = '', outJson = null;
-                            console.log('getPois select', err);
-                            if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
-                                outJson = !isSingle ? result.rows : result.rows[0];
-                            } else {
-                                outTxt = 'No pois found';
-                            }
-                            sendOutJSON(res, 200, outTxt, outJson);
-                        }
-                );
-            });
-        }
-        return next();
-    },
-
+   
     /**
      * get configuration archive
      * @param  array   req  request
