@@ -234,11 +234,16 @@ module.exports = {
                 var user_lat = '';
                 var user_lon = '';
                 var callingApp = '';
+                var email = '';
+               
 
                 if (typeof req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined' && typeof req.params.callingApp !== 'undefined') {
                     user_lat = req.params.user_lat;
                     user_lon = req.params.user_lon;
                     callingApp = req.params.callingApp ;
+                    if(typeof req.params.email !== 'undefined'){
+                         email = req.params.email;
+                    }
                 }
 
                 client.query(
@@ -390,19 +395,54 @@ module.exports = {
 
 
                                         sendOutJSON(res, 200, outTxt, outJson);
+                                        
                                         if (user_lat != '' && user_lon != ''&& callingApp != '') {
-                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
-                                            var paramsLoc = [0, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
-                                            client.query(sqlLoc,
-                                                paramsLoc,
+                                            var userId = 0;
+
+                                            if(email != '' ){
+                                            var sqlGetId = "SELECT id FROM customers where email = $1";
+                                            var paramsGetId = [email];
+                                            client.query(sqlGetId,
+                                                paramsGetId,
                                                 function (err, result) {
-                                                    done();
+                                                    
                                                     if (err) {
                                                         console.log('Errore getCarsLight insert location', err);
                                                         next.ifError(err);
                                                     }
+                                                    if (typeof result !== 'undefined' && result.rows.length > 0) {
+                                                        userId = result.rows[0].id;
+                                                    }
+
+                                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
+                                                    var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                    client.query(sqlLoc,
+                                                        paramsLoc,
+                                                        function (err, result) {
+                                                            done();
+                                                            if (err) {
+                                                                console.log('Errore getCarsLight insert location', err);
+                                                                next.ifError(err);
+                                                            }
+                                                        }
+                                                    );                                                    
                                                 }
                                             );
+                                            }else{
+                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
+                                                var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                client.query(sqlLoc,
+                                                    paramsLoc,
+                                                    function (err, result) {
+                                                        done();
+                                                        if (err) {
+                                                            console.log('Errore getCarsLight insert location', err);
+                                                            next.ifError(err);
+                                                        }
+                                                    }
+                                                );       
+                                            }
+                                           
                                         }
                                     }
                             );
@@ -1428,6 +1468,45 @@ module.exports = {
                             }
                             sendOutJSON(res, 200, outTxt, outJson);
                         }
+                );
+            });
+        }
+        return next();
+    },
+
+    /**
+     * get configuration archive
+     * @param  array   req  request
+     * @param  array   res  response
+     * @param  function next handler
+     */
+    getConfig: function (req, res, next) {
+        if (sanitizeInput(req, res)) {
+            pg.connect(conString, function (err, client, done) {
+
+                if (err) {
+                    done();
+                    console.log('Errore getConfig connect', err);
+                    next.ifError(err);
+                }
+
+                client.query(
+                    "SELECT config_key,config_value FROM configurations WHERE slug = 'app'",
+                    function (err, result) {
+                        done();
+                        if (err) {
+                            console.log('Errore getConfig select', err);
+                            next.ifError(err);
+                        }
+                        var outTxt = '', outJson = null;
+                        console.log('getConfig select', err);
+                        if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
+                            outJson = result.rows;
+                        } else {
+                            outTxt = 'No getConfig in archive found';
+                        }
+                        sendOutJSON(res, 200, outTxt, outJson);
+                    }
                 );
             });
         }
