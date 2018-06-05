@@ -954,7 +954,7 @@ module.exports = {
                 if (error == "no_error") {
                     //inizio check coerenza
 					
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where rus_id=$6 order by id desc limit 1) as penalty_exist;";
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where rus_id=$6 order by id desc limit 1) as penalty_exist, (SELECT id FROM safo_penalty where rus_id=$7 AND extra_payment_id IS NULL order by id desc limit 1) as penalty_not_payed;";
                     client.query(
                             query_coherent,
 							[vehicle_license_plate,
@@ -962,6 +962,7 @@ module.exports = {
 							trip_id,
 							trip_id,
 							customer_id,
+							rus_id,
 							rus_id],
                             function (err_co, result_co) {
                                 if (err_co) {
@@ -985,6 +986,9 @@ module.exports = {
                                         }
                                         if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
                                             err_co = "customer does not exist";
+                                        }
+										if (!result_co.rows[0]['penalty_not_payed']) {
+                                            err_co = "fine not editable, already assigned";
                                         }
 										if (!result_co.rows[0]['penalty_exist']) {
 											penalty_exist = 0;
