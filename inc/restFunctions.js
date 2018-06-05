@@ -767,11 +767,11 @@ module.exports = {
                 var insert_ts = d.getFullYear() + "/" + ("00" + (d.getMonth() + 1)).slice(-2) + "/" + ("00" + d.getDate()).slice(-2) + " " + ("00" + d.getHours()).slice(-2) + ":" + ("00" + d.getMinutes()).slice(-2) + ":" + ("00" + d.getSeconds()).slice(-2);
                 var charged = false;
 
-                var customer_id = 0;
-                var vehicle_fleet_id = 1;
+                var customer_id = null;
+                var vehicle_fleet_id = null;
                 var violation_category = 0;
-                var trip_id = 0;
-                var vehicle_license_plate = "no_plate";
+                var trip_id = null;
+                var vehicle_license_plate = null;
                 var violation_timestamp = "1970-01-01 00:00:00";
                 var violation_authority = "no_v_authority";
                 var violation_number = "no_v_number";
@@ -784,6 +784,7 @@ module.exports = {
                 var penalty_ok = null;
                 var amount = -1;
                 var complete = false;
+				var extra_payment_id = null;
 
                 var error = "no_error";
                 try {
@@ -791,11 +792,11 @@ module.exports = {
                     customer_id = json_parsed.customer_id;
                     if (isNaN(customer_id)) {
                         //error = "customer_id is not valid.";
-						customer_id = 0;
+						customer_id = null;
                     } else {
                         if (customer_id.length <= 0) {
                             //error = "customer_id is not valid.";
-							customer_id = 0;
+							customer_id = null;
                         }else{
 							if (customer_id < 0) {
 								error = "customer_id is not valid.";
@@ -805,11 +806,11 @@ module.exports = {
                     vehicle_fleet_id = json_parsed.vehicle_fleet_id;
                     if (isNaN(vehicle_fleet_id)) {
                         //error = "vehicle_fleet_id is not valid.";
-						vehicle_fleet_id = 0;
+						vehicle_fleet_id = null;
                     } else {
                         if (vehicle_fleet_id.length <= 0) {
                             //error = "vehicle_fleet_id is not valid.";
-							vehicle_fleet_id = 0;
+							vehicle_fleet_id = null;
                         }else{
 							if (vehicle_fleet_id < 0) {
 								error = "vehicle_fleet_id is not valid.";
@@ -827,11 +828,11 @@ module.exports = {
                     trip_id = json_parsed.trip_id;
                     if (isNaN(trip_id)) {
 						//error = "trip_id is not valid.";
-						trip_id = 0;
+						trip_id = null;
                     } else {
                         if (trip_id.length <= 0) {
 							//error = "trip_id is not valid.";
-							trip_id = 0;
+							trip_id = null;
                         }else{
 							if (trip_id < 0) {
 								error = "trip_id is not valid.";
@@ -841,7 +842,7 @@ module.exports = {
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
                     if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1 || vehicle_license_plate==0) {
                         //error = "vehicle_license_plate is not valid.";
-						vehicle_license_plate = "no_plate";
+						vehicle_license_plate = null
                     } else {
                         vehicle_license_plate = vehicle_license_plate.toUpperCase();
                     }
@@ -953,7 +954,7 @@ module.exports = {
                 if (error == "no_error") {
                     //inizio check coerenza
 					
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where customer_id=$6 AND violation_category=$7 AND trip_id=$8 AND violation_timestamp=$9 AND violation_authority=$10 AND violation_number=$11 AND violation_description=$12 AND rus_id=$13 AND violation_request_type=$14 order by id desc limit 1) as penalty_exist;";
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where rus_id=$6 order by id desc limit 1) as penalty_exist;";
                     client.query(
                             query_coherent,
 							[vehicle_license_plate,
@@ -961,15 +962,7 @@ module.exports = {
 							trip_id,
 							trip_id,
 							customer_id,
-							customer_id,
-							violation_category,
-							trip_id,
-							new Date(violation_timestamp),
-							violation_authority,
-							violation_number,
-							violation_description,
-							rus_id,
-							violation_request_type],
+							rus_id],
                             function (err_co, result_co) {
                                 if (err_co) {
                                     console.log('chargePenalty', req.connection.remoteAddress, 'coherent check query error', err_co);
