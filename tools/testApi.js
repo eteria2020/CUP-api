@@ -43,7 +43,7 @@ User.prototype.checkApi = function getApi(tries,user) {
                     user.checkApi(tries - 1,user);
                 }, 2000);
             } else {
-                if (response.status == 200) {
+                if (response.statusCode == 200) {
                     this.restart = true;
                     console.log("got status code: " + response.statusCode);
                     console.log("End check api at " + new Date());
