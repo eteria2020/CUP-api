@@ -987,9 +987,11 @@ module.exports = {
                                         if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
                                             err_co = "customer does not exist";
                                         }
+										/*
 										if (!result_co.rows[0]['penalty_not_payed']) {
                                             err_co = "fine not editable, already assigned";
                                         }
+										*/
 										if (!result_co.rows[0]['penalty_exist']) {
 											penalty_exist = 0;
 										} else {
@@ -998,6 +1000,13 @@ module.exports = {
 
                                         if (err_co == "no error") {
 											if (penalty_exist > 0){
+												if (!result_co.rows[0]['penalty_not_payed']) {
+													err_co = "fine not editable, already assigned";
+													outJson = {"penalty_loading_result": "false", "error": err_co};
+													console.log('chargePenalty', req.connection.remoteAddress, 'coherent check error', err_co);
+													sendOutJSON(res, 400, "KO", outJson);
+													done();
+												}
 												//inizio update
 												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19 WHERE id=$20;";
 												client.query(
@@ -1042,7 +1051,7 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
 												client.query(
 													query,
 													[insert_ts,
