@@ -998,7 +998,7 @@ module.exports = {
 											penalty_exist = result_co.rows[0]['penalty_exist'];
 										}
 
-                                        if (err_co == "no error") {
+                                        if (err_co == "no error"){
 											if (penalty_exist > 0){
 												if (!result_co.rows[0]['penalty_not_payed']) {
 													err_co = "fine not editable, already assigned";
