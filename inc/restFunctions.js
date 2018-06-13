@@ -234,11 +234,16 @@ module.exports = {
                 var user_lat = '';
                 var user_lon = '';
                 var callingApp = '';
+                var email = '';
+               
 
                 if (typeof req.params.user_lat !== 'undefined' && typeof req.params.user_lon !== 'undefined' && typeof req.params.callingApp !== 'undefined') {
                     user_lat = req.params.user_lat;
                     user_lon = req.params.user_lon;
                     callingApp = req.params.callingApp ;
+                    if(typeof req.params.email !== 'undefined'){
+                         email = req.params.email;
+                    }
                 }
 
                 client.query(
@@ -390,19 +395,54 @@ module.exports = {
 
 
                                         sendOutJSON(res, 200, outTxt, outJson);
+                                        
                                         if (user_lat != '' && user_lon != ''&& callingApp != '') {
-                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
-                                            var paramsLoc = [0, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
-                                            client.query(sqlLoc,
-                                                paramsLoc,
+                                            var userId = 0;
+
+                                            if(email != '' ){
+                                            var sqlGetId = "SELECT id FROM customers where email = $1";
+                                            var paramsGetId = [email];
+                                            client.query(sqlGetId,
+                                                paramsGetId,
                                                 function (err, result) {
-                                                    done();
+                                                    
                                                     if (err) {
                                                         console.log('Errore getCarsLight insert location', err);
                                                         next.ifError(err);
                                                     }
+                                                    if (typeof result !== 'undefined' && result.rows.length > 0) {
+                                                        userId = result.rows[0].id;
+                                                    }
+
+                                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
+                                                    var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                    client.query(sqlLoc,
+                                                        paramsLoc,
+                                                        function (err, result) {
+                                                            done();
+                                                            if (err) {
+                                                                console.log('Errore getCarsLight insert location', err);
+                                                                next.ifError(err);
+                                                            }
+                                                        }
+                                                    );                                                    
                                                 }
                                             );
+                                            }else{
+                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
+                                                var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                client.query(sqlLoc,
+                                                    paramsLoc,
+                                                    function (err, result) {
+                                                        done();
+                                                        if (err) {
+                                                            console.log('Errore getCarsLight insert location', err);
+                                                            next.ifError(err);
+                                                        }
+                                                    }
+                                                );       
+                                            }
+                                           
                                         }
                                     }
                             );
@@ -727,11 +767,11 @@ module.exports = {
                 var insert_ts = d.getFullYear() + "/" + ("00" + (d.getMonth() + 1)).slice(-2) + "/" + ("00" + d.getDate()).slice(-2) + " " + ("00" + d.getHours()).slice(-2) + ":" + ("00" + d.getMinutes()).slice(-2) + ":" + ("00" + d.getSeconds()).slice(-2);
                 var charged = false;
 
-                var customer_id = 0;
-                var vehicle_fleet_id = 1;
+                var customer_id = null;
+                var vehicle_fleet_id = null;
                 var violation_category = 0;
-                var trip_id = 0;
-                var vehicle_license_plate = "no_plate";
+                var trip_id = null;
+                var vehicle_license_plate = null;
                 var violation_timestamp = "1970-01-01 00:00:00";
                 var violation_authority = "no_v_authority";
                 var violation_number = "no_v_number";
@@ -744,6 +784,7 @@ module.exports = {
                 var penalty_ok = null;
                 var amount = -1;
                 var complete = false;
+				var extra_payment_id = null;
 
                 var error = "no_error";
                 try {
@@ -751,11 +792,11 @@ module.exports = {
                     customer_id = json_parsed.customer_id;
                     if (isNaN(customer_id)) {
                         //error = "customer_id is not valid.";
-						customer_id = 0;
+						customer_id = null;
                     } else {
                         if (customer_id.length <= 0) {
                             //error = "customer_id is not valid.";
-							customer_id = 0;
+							customer_id = null;
                         }else{
 							if (customer_id < 0) {
 								error = "customer_id is not valid.";
@@ -765,11 +806,11 @@ module.exports = {
                     vehicle_fleet_id = json_parsed.vehicle_fleet_id;
                     if (isNaN(vehicle_fleet_id)) {
                         //error = "vehicle_fleet_id is not valid.";
-						vehicle_fleet_id = 0;
+						vehicle_fleet_id = null;
                     } else {
                         if (vehicle_fleet_id.length <= 0) {
                             //error = "vehicle_fleet_id is not valid.";
-							vehicle_fleet_id = 0;
+							vehicle_fleet_id = null;
                         }else{
 							if (vehicle_fleet_id < 0) {
 								error = "vehicle_fleet_id is not valid.";
@@ -787,11 +828,11 @@ module.exports = {
                     trip_id = json_parsed.trip_id;
                     if (isNaN(trip_id)) {
 						//error = "trip_id is not valid.";
-						trip_id = 0;
+						trip_id = null;
                     } else {
                         if (trip_id.length <= 0) {
 							//error = "trip_id is not valid.";
-							trip_id = 0;
+							trip_id = null;
                         }else{
 							if (trip_id < 0) {
 								error = "trip_id is not valid.";
@@ -801,7 +842,7 @@ module.exports = {
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
                     if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1 || vehicle_license_plate==0) {
                         //error = "vehicle_license_plate is not valid.";
-						vehicle_license_plate = "no_plate";
+						vehicle_license_plate = null
                     } else {
                         vehicle_license_plate = vehicle_license_plate.toUpperCase();
                     }
@@ -913,7 +954,7 @@ module.exports = {
                 if (error == "no_error") {
                     //inizio check coerenza
 					
-                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where customer_id=$6 AND violation_category=$7 AND trip_id=$8 AND violation_timestamp=$9 AND violation_authority=$10 AND violation_number=$11 AND violation_description=$12 AND rus_id=$13 AND violation_request_type=$14 order by id desc limit 1) as penalty_exist;";
+                    var query_coherent = "SELECT EXISTS(SELECT 1 FROM cars WHERE plate = $1) as plate_exist, EXISTS(SELECT 1 FROM customers WHERE id = $2) as customer_exist, EXISTS(SELECT 1 FROM trips WHERE id = $3) as trip_exist, EXISTS(SELECT 1 FROM trips WHERE id = $4 AND customer_id = $5) as trip_coherent, (SELECT id FROM safo_penalty where rus_id=$6 order by id desc limit 1) as penalty_exist, (SELECT id FROM safo_penalty where rus_id=$7 AND extra_payment_id IS NULL order by id desc limit 1) as penalty_not_payed;";
                     client.query(
                             query_coherent,
 							[vehicle_license_plate,
@@ -921,15 +962,8 @@ module.exports = {
 							trip_id,
 							trip_id,
 							customer_id,
-							customer_id,
-							violation_category,
-							trip_id,
-							new Date(violation_timestamp),
-							violation_authority,
-							violation_number,
-							violation_description,
 							rus_id,
-							violation_request_type],
+							rus_id],
                             function (err_co, result_co) {
                                 if (err_co) {
                                     console.log('chargePenalty', req.connection.remoteAddress, 'coherent check query error', err_co);
@@ -953,14 +987,26 @@ module.exports = {
                                         if ((!result_co.rows[0]['customer_exist'])&&(customer_id>0)) {
                                             err_co = "customer does not exist";
                                         }
+										/*
+										if (!result_co.rows[0]['penalty_not_payed']) {
+                                            err_co = "fine not editable, already assigned";
+                                        }
+										*/
 										if (!result_co.rows[0]['penalty_exist']) {
 											penalty_exist = 0;
 										} else {
 											penalty_exist = result_co.rows[0]['penalty_exist'];
 										}
 
-                                        if (err_co == "no error") {
-											if (penalty_exist > 0) {
+                                        if (err_co == "no error"){
+											if (penalty_exist > 0){
+												if (!result_co.rows[0]['penalty_not_payed']) {
+													err_co = "fine not editable, already assigned";
+													outJson = {"penalty_loading_result": "false", "error": err_co};
+													console.log('chargePenalty', req.connection.remoteAddress, 'coherent check error', err_co);
+													sendOutJSON(res, 400, "KO", outJson);
+													done();
+												}
 												//inizio update
 												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19 WHERE id=$20;";
 												client.query(
@@ -1005,7 +1051,7 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), NULL, $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
 												client.query(
 													query,
 													[insert_ts,
@@ -1433,7 +1479,7 @@ module.exports = {
         }
         return next();
     },
-   
+
     /**
      * get configuration archive
      * @param  array   req  request
@@ -1451,23 +1497,22 @@ module.exports = {
                 }
 
                 client.query(
-                        "SELECT config_key,config_value FROM configurations WHERE slug = 'app'",
-                        [],
-                        function (err, result) {
-                            done();
-                            if (err) {
-                                console.log('Errore getConfig select', err);
-                                next.ifError(err);
-                            }
-                            var outTxt = '', outJson = null;
-                            console.log('getConfig select', err);
-                            if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
-                                outJson = result.rows;
-                            } else {
-                                outTxt = 'No getConfig in archive found';
-                            }
-                            sendOutJSON(res, 200, outTxt, outJson);
+                    "SELECT config_key,config_value FROM configurations WHERE slug = 'app'",
+                    function (err, result) {
+                        done();
+                        if (err) {
+                            console.log('Errore getConfig select', err);
+                            next.ifError(err);
                         }
+                        var outTxt = '', outJson = null;
+                        console.log('getConfig select', err);
+                        if ((typeof result !== 'undefined') && (result.rowCount > 0)) {
+                            outJson = result.rows;
+                        } else {
+                            outTxt = 'No getConfig in archive found';
+                        }
+                        sendOutJSON(res, 200, outTxt, outJson);
+                    }
                 );
             });
         }
