@@ -14,7 +14,8 @@
     "pg-native": "1.8",
     "restify": "2.6.3",
     "validator": "3.40",
-    "axios": "^0.18.0"
+    "axios": "^0.18.0",
+    "request": "2.74.0"
   },
   "private": true,
   "repository": {
