@@ -1062,7 +1062,7 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);";
+												var query = "INSERT INTO safo_penalty (\"id\",\"insert_ts\",\"charged\",\"consumed_ts\",\"customer_id\",\"vehicle_fleet_id\",\"violation_category\",\"trip_id\",\"car_plate\",\"violation_timestamp\",\"violation_authority\",\"violation_number\",\"violation_description\",\"rus_id\",\"violation_request_type\",\"violation_status\",\"email_sent_timestamp\",\"email_sent_ok\",\"penalty_ok\",\"amount\",\"complete\",\"extra_payment_id\",\"payable\") VALUES (nextval('safo_penalty_id_seq'::regclass),$1,$2,NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NULL,$20);";
 												client.query(
 													query,
 													[insert_ts,
