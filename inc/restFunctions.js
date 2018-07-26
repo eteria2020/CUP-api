@@ -1004,6 +1004,11 @@ module.exports = {
 										}
 
                                         if (err_co == "no error"){
+											var payable = true;
+											//check if fine is not payable (our fault)
+											if(violation_description=="Il proprietario del veicolo deve comunicare entro 60gg dalla richiesta, all'organo di polizia, i dati personali e della patente del conducente al momento della commessa violazione."){
+												payable = false;
+											}
 											if (penalty_exist > 0){
 												if (!result_co.rows[0]['penalty_not_payed']) {
 													err_co = "fine not editable, already assigned";
@@ -1011,11 +1016,6 @@ module.exports = {
 													console.log('chargePenalty', req.connection.remoteAddress, 'coherent check error', err_co);
 													sendOutJSON(res, 400, "KO", outJson);
 													done();
-												}
-												var payable = true;
-												//check if fine is not payable (our fault)
-												if(violation_description=="Il proprietario del veicolo deve comunicare entro 60gg dalla richiesta, all'organo di polizia, i dati personali e della patente del conducente al momento della commessa violazione."){
-													payable = false;
 												}
 												//inizio update
 												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19, payable=$20 WHERE id=$21;";
