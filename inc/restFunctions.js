@@ -763,10 +763,10 @@ module.exports = {
                     console.log('chargePenalty', req.connection.remoteAddress, 'connect error', err);
                     next.ifError(err);
                 }
+				next();
                 var d = new Date();
                 var insert_ts = d.getFullYear() + "/" + ("00" + (d.getMonth() + 1)).slice(-2) + "/" + ("00" + d.getDate()).slice(-2) + " " + ("00" + d.getHours()).slice(-2) + ":" + ("00" + d.getMinutes()).slice(-2) + ":" + ("00" + d.getSeconds()).slice(-2);
                 var charged = false;
-
                 var customer_id = null;
                 var vehicle_fleet_id = null;
                 var violation_category = 0;
@@ -785,7 +785,6 @@ module.exports = {
                 var amount = -1;
                 var complete = false;
 				var extra_payment_id = null;
-
                 var error = "no_error";
                 try {
                     json_parsed = JSON.parse(req.body);
@@ -803,6 +802,9 @@ module.exports = {
 							}
 						}
                     }
+					if(customer_id==0){
+						customer_id=null;
+					}
                     vehicle_fleet_id = json_parsed.vehicle_fleet_id;
                     if (isNaN(vehicle_fleet_id)) {
                         //error = "vehicle_fleet_id is not valid.";
@@ -839,6 +841,9 @@ module.exports = {
 							}
 						}
                     }
+					if(trip_id == 0){
+						trip_id=null;
+					}
                     vehicle_license_plate = json_parsed.vehicle_license_plate;
                     if (vehicle_license_plate === null || vehicle_license_plate === "null" || vehicle_license_plate.length < 1 || vehicle_license_plate==0) {
                         //error = "vehicle_license_plate is not valid.";
@@ -911,7 +916,7 @@ module.exports = {
 							email_sent_timestamp = new Date(json_parsed.email_sent_timestamp);
 						}
                     }
-
+					
                     if ((typeof json_parsed.email_sent_ok !== 'undefined')) {
                         email_sent_ok = json_parsed.email_sent_ok;
                     } else {
@@ -1007,8 +1012,13 @@ module.exports = {
 													sendOutJSON(res, 400, "KO", outJson);
 													done();
 												}
+												var payable = true;
+												//check if fine is not payable (our fault)
+												if(violation_description=="Il proprietario del veicolo deve comunicare entro 60gg dalla richiesta, all'organo di polizia, i dati personali e della patente del conducente al momento della commessa violazione."){
+													payable = false;
+												}
 												//inizio update
-												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19 WHERE id=$20;";
+												var query = "UPDATE safo_penalty SET insert_ts=$1, charged=$2, customer_id=$3, vehicle_fleet_id=$4, violation_category=$5, trip_id=$6, car_plate=$7, violation_timestamp=$8, violation_authority=$9, violation_number=$10, violation_description=$11, rus_id=$12, violation_request_type=$13, violation_status=$14, email_sent_timestamp=$15, email_sent_ok=$16, penalty_ok=$17, amount=$18, complete=$19, payable=$20 WHERE id=$21;";
 												client.query(
 													query,
 													[insert_ts,
@@ -1030,6 +1040,7 @@ module.exports = {
 													penalty_ok,
 													amount,
 													complete,
+													payable,
 													penalty_exist],
 													function (err, result) {
 														if (err) {
@@ -1051,7 +1062,7 @@ module.exports = {
 												//fine update
 											} else {
 												//inizio insert
-												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19);";
+												var query = "INSERT INTO safo_penalty VALUES (nextval('safo_penalty_id_seq'), $1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);";
 												client.query(
 													query,
 													[insert_ts,
@@ -1072,7 +1083,8 @@ module.exports = {
 													email_sent_ok,
 													penalty_ok,
 													amount,
-													complete],
+													complete,
+													payable],
 													function (err, result) {
 														if (err) {
 															console.log('chargePenalty', req.connection.remoteAddress, 'insert error', err);
@@ -1116,7 +1128,7 @@ module.exports = {
 
             });
         }
-        return next();
+        //return next();
     },
     /* PUT */
     /**
