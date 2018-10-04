@@ -497,18 +497,6 @@ process.on('uncaughtException', function (err) {
 		funcs.getPois
 	);
 	
-	//safo
-	server.post(
-		'/v2/getLastTrips',
-		//passport.authenticate('strict', {session: false}),
-		funcs.getLastTrips
-	);
-	server.put(
-		'/v2/chargePenalty',
-		//passport.authenticate('strict', {session: false}),
-		funcs.chargePenalty
-	);
-	
 	//point
 	server.post(
 		'/v2/postPoint/',
