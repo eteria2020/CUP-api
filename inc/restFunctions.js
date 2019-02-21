@@ -4,6 +4,8 @@ var conString = expo.conString;
 //var port = expo.port;
 var validator = expo.validator;
 var defaultDistance = expo.defaultDistance;
+var gatewayApiURL = expo.gatewayApiURL;
+var request = require('request');
 
 module.exports = {
     /* GET */
@@ -547,6 +549,9 @@ module.exports = {
                                                             console.log('Errore putCars insert', err);
                                                             next.ifError(err);
                                                         }
+                                                        if(cmd==="OPEN_TRIP"){
+                                                            sendRFID(req.params.plate,req.user.card_code)
+                                                        }
 
                                                         if (user_lat != '' && user_lon != '') {
                                                             var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
@@ -1081,6 +1086,7 @@ module.exports = {
                                                                                 console.log('Errore getPois insert ', err);
                                                                                 next.ifError(err);
                                                                             }
+                                                                            wakeCar(req.params.plate);
 
                                                                             if (user_lat != '' && user_lon != '') {
                                                                                 var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
@@ -1408,3 +1414,43 @@ function sanitizeInput(req, res) {
 
 
 /* /EXTRA FUNCTIONS */
+
+
+function wakeCar(car_plate) {
+console.log("waking up androdi!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+
+    request({
+        url: gatewayApiURL + '/wakeAndroid/'+car_plate,
+        timeout: 5000 // 5 sec
+    }, function (error, response, body) {
+        if (error) {
+
+            console.log(error)
+        } else {
+            console.log(body);
+            if (response.statusCode === 200) {
+
+            } else {
+
+            }
+        }
+    });
+
+}
+function sendRFID(car_plate, rfid) {
+    request({
+        url: gatewayApiURL + '/RFID/'+car_plate +"?code=" + rfid,
+        timeout: 5000 // 5 sec
+    }, function (error, response, body) {
+        if (error) {
+
+        } else {
+            if (response.statusCode === 200) {
+
+            } else {
+
+            }
+        }
+    });
+
+}
