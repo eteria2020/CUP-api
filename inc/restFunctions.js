@@ -313,7 +313,6 @@ module.exports = {
                             var query3SelectSingleCar = "";
                             var query3Where =  " cars.fleet_id <= 100 AND " +
                                 "cars.status = 'operative' AND " +
-                                "cars.active IS TRUE AND " +
                                 "cars.busy IS FALSE AND " +
                                 "cars.hidden IS FALSE AND " +
                                 "cars.plate NOT IN (SELECT car_plate FROM reservations WHERE active IS TRUE) " +
