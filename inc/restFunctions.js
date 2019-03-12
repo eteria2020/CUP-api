@@ -4,7 +4,7 @@ var conString = expo.conString;
 //var port = expo.port;
 var validator = expo.validator;
 var defaultDistance = expo.defaultDistance;
-var gatewayApiURL = expo.gatewayApiURL;
+var gatewayApiURL = expo.gatewayApiURL || "http://localhost:50594";
 var request = require('request');
 
 module.exports = {
@@ -84,7 +84,7 @@ module.exports = {
     getCars: function (req, res, next) {
         if (sanitizeInput(req, res)) {
             pg.connect(conString, function (err, client, done) {
-
+ò
                 if (err) {
                     done();
                     console.log('Errore getCars connect', err);
@@ -1440,9 +1440,9 @@ function wakeCar(car_plate) {
         } else {
             console.log(body);
             if (response.statusCode === 200) {
-
+                console.log("wakeCar Sent succesfyully");
             } else {
-
+                console.log("wakeCar error code: " + response.statusCode);
             }
         }
     });
@@ -1455,11 +1455,12 @@ function sendRFID(car_plate, rfid) {
     }, function (error, response, body) {
         if (error) {
 
+            console.log(error)
         } else {
             if (response.statusCode === 200) {
-
+            console.log("RFID Sent succesfyully " +rfid);
             } else {
-
+                console.log("RFID error sending " +rfid + " code: " + response.statusCode);
             }
         }
     });
