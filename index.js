@@ -9,6 +9,7 @@ var conString = config.conString;
 var standardPort = config.port;
 var unsecurePort =  config.unsecurePort;
 var logPath = config.logPath;
+var gatewayApiURL = config.gatewayApiURL;
 
 // INIT
 var restify = require('restify');
@@ -43,7 +44,8 @@ var expo = {
 	pg: pg,
 	port: standardPort,
 	validator: validator,
-	defaultDistance: defaultDistance
+	defaultDistance: defaultDistance,
+	gatewayApiURL: gatewayApiURL
 };
 exports.expo = expo;
 

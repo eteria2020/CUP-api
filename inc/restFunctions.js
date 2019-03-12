@@ -4,6 +4,8 @@ var conString = expo.conString;
 //var port = expo.port;
 var validator = expo.validator;
 var defaultDistance = expo.defaultDistance;
+var gatewayApiURL = expo.gatewayApiURL || "http://localhost:50594";
+var request = require('request');
 
 module.exports = {
     /* GET */
@@ -82,7 +84,7 @@ module.exports = {
     getCars: function (req, res, next) {
         if (sanitizeInput(req, res)) {
             pg.connect(conString, function (err, client, done) {
-
+ò
                 if (err) {
                     done();
                     console.log('Errore getCars connect', err);
@@ -514,7 +516,7 @@ module.exports = {
                 }
 
                 client.query(
-                        "SELECT EXISTS(SELECT plate FROM cars WHERE plate=$1)",
+                        "SELECT plate, software_version FROM cars WHERE plate=$1",
                         [plate],
                         function (err, result) {
                             done();
@@ -523,7 +525,12 @@ module.exports = {
                                 next.ifError(err);
                             }
 
-                            if (result.rows[0].exists) {
+                            if (result.rows.length>0) {
+                                var car_obc = "0.0.0";
+                                try {
+                                    car_obc = (result.rows[0].software_version || "0.0.0").replace(/[^0-9.]/g, "").split('.');
+                                    car_obc = car_obc[0].concat(car_obc[1]);
+                                }catch (Exception){}
                                 if (cmd != '') {
                                     client.query("SELECT EXISTS(SELECT id FROM trips WHERE timestamp_end IS NULL AND car_plate = $1) as trip, EXISTS(SELECT plate FROM cars WHERE plate=$1 AND status!='operative') as status, EXISTS(SELECT id FROM reservations WHERE car_plate=$1 AND active=TRUE AND customer_id!=$2) as reservation", [plate, req.user.id], function (err, resultTripActive) {
                                         done();
@@ -546,6 +553,9 @@ module.exports = {
                                                         if (err) {
                                                             console.log('Errore putCars insert', err);
                                                             next.ifError(err);
+                                                        }
+                                                        if(cmd==="OPEN_TRIP" && parseInt(car_obc)>=110){
+                                                            sendRFID(req.params.plate,req.user.card_code)
                                                         }
 
                                                         if (user_lat != '' && user_lon != '') {
@@ -845,7 +855,7 @@ module.exports = {
 
                 //query="SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::integer as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::integer as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable, trips.is_accounted FROM trips "+queryJoin+" WHERE customer_id = $1 "+queryTrip;
                 client.query(
-                        "SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::bigint as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::bigint as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable, trips.cost_computed FROM trips " + queryJoin + " WHERE customer_id = $1 " + queryTrip,
+                        "SELECT trips.id,trips.car_plate,extract(epoch from trips.timestamp_beginning::timestamp with time zone)::bigint as timestamp_start, extract(epoch from trips.timestamp_end::timestamp with time zone)::bigint as timestamp_end,trips.latitude_beginning as lat_start,trips.latitude_end as lat_end,trips.longitude_beginning as lon_start,trips.longitude_end as lon_end,trips.park_seconds, trip_payments.parking_minutes,trip_payments.total_cost, trip_payments.payed_successfully_at , trip_payments.status, trips.payable, trips.cost_computed, trips.pin_type FROM trips " + queryJoin + " WHERE customer_id = $1 " + queryTrip,
                         params,
                         function (err, result) {
                             done();
@@ -1028,7 +1038,7 @@ module.exports = {
                     }
 
                     client.query(
-                            "SELECT EXISTS(SELECT plate FROM cars WHERE plate=$1)",
+                            "SELECT plate, software_version FROM cars WHERE plate=$1",
                             [req.params.plate],
                             function (err, result) {
                                 done();
@@ -1036,7 +1046,12 @@ module.exports = {
                                     console.log('Errore postReservations exits car', err);
                                     next.ifError(err);
                                 }
-                                if (result.rows[0].exists) {
+                                if (result.rows.length>0) {
+                                    var car_obc = "0.0.0";
+                                    try {
+                                        car_obc = (result.rows[0].software_version || "0.0.0").replace(/[^0-9.]/g, "").split('.');
+                                        car_obc = car_obc[0].concat(car_obc[1]);
+                                    }catch (Exception){}
                                     client.query(
                                             "SELECT EXISTS(SELECT id FROM trips WHERE car_plate = $2 AND customer_id = $1 AND payable = TRUE AND timestamp_beginning >= (SELECT consumed_ts FROM (SELECT (consumed_ts - interval '180 second') as consumed_ts FROM (SELECT consumed_ts FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour) UNION SELECT consumed_ts FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) AS reservation ORDER BY consumed_ts DESC LIMIT 1) as reservation WHERE consumed_ts IS NOT NULL) AND timestamp_beginning <= (SELECT consumed_ts FROM (SELECT (consumed_ts + interval '180 second') as consumed_ts FROM (SELECT consumed_ts FROM reservations WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour) UNION SELECT consumed_ts FROM reservations_archive WHERE car_plate=$2 AND customer_id=$1 AND ts >= (now() - interval '4' hour)) AS reservation ORDER BY consumed_ts DESC LIMIT 1) as reservation WHERE consumed_ts IS NOT NULL) AND timestamp_end IS NOT NULL AND (timestamp_end - timestamp_beginning) > '00:02:00') as trips",
                                             [req.user.id, req.params.plate],
@@ -1080,6 +1095,9 @@ module.exports = {
                                                                             if (err) {
                                                                                 console.log('Errore getPois insert ', err);
                                                                                 next.ifError(err);
+                                                                            }
+                                                                            if(parseInt(car_obc)>=110) {
+                                                                                wakeCar(req.params.plate);
                                                                             }
 
                                                                             if (user_lat != '' && user_lon != '') {
@@ -1408,3 +1426,43 @@ function sanitizeInput(req, res) {
 
 
 /* /EXTRA FUNCTIONS */
+
+
+function wakeCar(car_plate) {
+
+    request({
+        url: gatewayApiURL + '/wakeAndroid/'+car_plate,
+        timeout: 5000 // 5 sec
+    }, function (error, response, body) {
+        if (error) {
+
+            console.log(error)
+        } else {
+            console.log(body);
+            if (response.statusCode === 200) {
+                console.log("wakeCar Sent succesfyully");
+            } else {
+                console.log("wakeCar error code: " + response.statusCode);
+            }
+        }
+    });
+
+}
+function sendRFID(car_plate, rfid) {
+    request({
+        url: gatewayApiURL + '/RFID/'+car_plate +"?code=" + rfid,
+        timeout: 5000 // 5 sec
+    }, function (error, response, body) {
+        if (error) {
+
+            console.log(error)
+        } else {
+            if (response.statusCode === 200) {
+            console.log("RFID Sent succesfyully " +rfid);
+            } else {
+                console.log("RFID error sending " +rfid + " code: " + response.statusCode);
+            }
+        }
+    });
+
+}
