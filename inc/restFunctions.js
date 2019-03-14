@@ -84,7 +84,6 @@ module.exports = {
     getCars: function (req, res, next) {
         if (sanitizeInput(req, res)) {
             pg.connect(conString, function (err, client, done) {
-ò
                 if (err) {
                     done();
                     console.log('Errore getCars connect', err);
