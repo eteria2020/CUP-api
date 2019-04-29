@@ -18,7 +18,7 @@ function User(email, password) {
 User.prototype.restartWebservices = function restartWebservices() {
     if (this.restart) {
         this.restart = false;
-        exec('pm2 restart webservices ', function (error, stdout, stderr) {
+        exec('pm2 stop webservices && pm2 start webservices ', function (error, stdout, stderr) {
             console.log("Webservices restarted "+stdout);
             console.log("End check api at " + new Date());
         });
