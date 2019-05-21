@@ -47,8 +47,9 @@ module.exports = {
                             }
 
                             if (user_lat != '' && user_lon != '') {
-                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
-                                var paramsLoc = [req.user.id, user_lat, user_lon, "login", null,req.connection.remoteAddress,req.connection.remotePort];
+                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port,user_agent) values ($1,$2, $3, $4 , now(), $5 ,$6,$7,$8)";
+                                var paramsLoc = [req.user.id, user_lat, user_lon, "login", null,req.connection.remoteAddress,req.connection.remotePort,req.userAgent()];
+                                console.log("qua",sqlLoc,"\n",paramsLoc);
                                 client.query(sqlLoc,
                                         paramsLoc,
                                         function (err, result) {
@@ -414,8 +415,8 @@ module.exports = {
                                                         userId = result.rows[0].id;
                                                     }
 
-                                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
-                                                    var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app, user_agent) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8, $9)";
+                                                    var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp, req.userAgent()];
                                                     client.query(sqlLoc,
                                                         paramsLoc,
                                                         function (err, result) {
@@ -429,8 +430,8 @@ module.exports = {
                                                 }
                                             );
                                             }else{
-                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8)";
-                                                var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp];
+                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate, ip, port, calling_app, user_agent) values ($1,$2, $3, $4 , now(), $5 , $6, $7, $8, $9)";
+                                                var paramsLoc = [userId, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort, callingApp, req.userAgent()];
                                                 client.query(sqlLoc,
                                                     paramsLoc,
                                                     function (err, result) {
@@ -558,8 +559,8 @@ module.exports = {
                                                         }
 
                                                         if (user_lat != '' && user_lon != '') {
-                                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
-                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + " trip", plate,req.connection.remoteAddress,req.connection.remotePort];
+                                                            var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port, user_agent) values ($1,$2, $3, $4 , now(), $5 ,$6,$7, $8)";
+                                                            var paramsLoc = [req.user.id, user_lat, user_lon, action.toLowerCase() + " trip", plate,req.connection.remoteAddress,req.connection.remotePort,req.userAgent()];
                                                             client.query(sqlLoc,
                                                                     paramsLoc,
                                                                     function (err, result) {
@@ -1100,8 +1101,8 @@ module.exports = {
                                                                             }
 
                                                                             if (user_lat != '' && user_lon != '') {
-                                                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
-                                                                                var paramsLoc = [req.user.id, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort];
+                                                                                var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port, user_agent) values ($1,$2, $3, $4 , now(), $5 ,$6,$7, $8)";
+                                                                                var paramsLoc = [req.user.id, user_lat, user_lon, "create reservation", req.params.plate,req.connection.remoteAddress,req.connection.remotePort,req.userAgent()];
                                                                                 client.query(sqlLoc,
                                                                                         paramsLoc,
                                                                                         function (err, result) {
@@ -1257,12 +1258,12 @@ module.exports = {
                                     next.ifError(err);
                                 }
                                 if (user_lat != '' && user_lon != '') {
-                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port) values ($1,$2, $3, $4 , now(), $5 ,$6,$7)";
+                                    var sqlLoc = "INSERT INTO customer_locations (customer_id, latitude, longitude, action, timestamp, car_plate,ip,port, user_agent) values ($1,$2, $3, $4 , now(), $5 ,$6,$7, $8)";
                                     var plate = '';
                                     if (typeof result.rows[0].car_plate !== 'undefined' && result.rows[0].car_plate != '') {
                                         plate = result.rows[0].car_plate;
                                     }
-                                    var paramsLoc = [req.user.id, user_lat, user_lon, "delete reservation ", plate,req.connection.remoteAddress,req.connection.remotePort];
+                                    var paramsLoc = [req.user.id, user_lat, user_lon, "delete reservation ", plate,req.connection.remoteAddress,req.connection.remotePort, req.userAgent()];
                                     client.query(sqlLoc,
                                             paramsLoc,
                                             function (err, result) {
