@@ -1000,6 +1000,51 @@ module.exports = {
         }
         return next();
     },
+
+    /**
+     * get configuration archive
+     * @param  array   req  request
+     * @param  array   res  response
+     * @param  function next handler
+     */
+    getAppConfig: function(req, res, next) {
+        if(sanitizeInput(req,res)){
+            pg.connect(conString, function(err, client, done) {
+
+                if (err) {
+                    done();
+                    console.log('Errore getAppConfig connect',err);
+                    next.ifError(err);
+                }
+
+                var query = '', params = [], isSingle = false;
+
+                query = "SELECT config_key, config_spec FROM configurations WHERE slug = $1"
+                params = "app" + [req.params.country];
+
+                client.query(
+                    query,
+                    params,
+                    function(err, result) {
+                        done();
+                        if (err) {
+                            console.log('Errore getAppConfig select',err);
+                            next.ifError(err);
+                        }
+                        var outTxt = '',outJson = null;
+                        console.log('getAppConfig select',err);
+                        if((typeof result !== 'undefined') && (result.rowCount>0)){
+                            outJson = !isSingle?result.rows:result.rows[0];
+                        }else{
+                            outTxt ='No config found';
+                        }
+                        sendOutJSON(res,200,outTxt,outJson);
+                    }
+                );
+            });
+        }
+        return next();
+    },
     /* / GET */
 
     /* POST */

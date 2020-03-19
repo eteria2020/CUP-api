@@ -511,6 +511,11 @@ process.on('uncaughtException', function (err) {
 		//passport.authenticate('loose', {session: false}),
 		funcs.getConfig
 	);
+	server.get(
+		'/v3/appConfig/:country',
+		//passport.authenticate('basic', {session: false}),
+		funcs.getAppConfig
+	);
 
 /* / routes */
 }
